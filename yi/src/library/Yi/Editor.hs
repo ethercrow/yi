@@ -455,7 +455,7 @@ alternateBufferE n = do
 
 -- | Create a new zero size window on a given buffer
 newZeroSizeWindow ::Bool -> BufferRef -> WindowRef -> Window
-newZeroSizeWindow mini bk ref = Window mini bk [] 0 emptyRegion ref 0
+newZeroSizeWindow mini bk ref = Window mini bk [] 0 emptyRegion ref 0 emptyJumpList
 
 -- | Create a new window onto the given buffer.
 newWindowE :: Bool -> BufferRef -> EditorM Window
