@@ -19,6 +19,7 @@ import Data.Maybe
 import Data.Typeable
 import Prelude (map, filter, length, reverse)
 import System.FilePath (splitPath)
+import System.IO (FilePath)
 import Yi.Buffer
 import Yi.Config
 import Yi.Dynamic
@@ -704,6 +705,23 @@ acceptedInputs = do
     keymap <- withBuffer0 $ gets (withMode0 modeKeymap)
     let l = I.accepted 3 $ I.mkAutomaton $ extractTopKeymap $ keymap $ defaultKm cfg
     return $ fmap (intercalate " ") l
+
+markJumpLocationInCurrentWindowE :: EditorM ()
+markJumpLocationInCurrentWindowE = do
+    filePath <- fmap bufInfoFileName $ withBuffer0 bufInfoB
+    point <- withBuffer0 pointB
+    modA currentWindowA $ addJump (filePath, point)
+
+jumpBackE :: Int -> EditorM ()
+jumpBackE count = modA currentWindowA $ jumpBack count
+
+jumpForwardE :: Int -> EditorM ()
+jumpForwardE count = modA currentWindowA $ jumpForward count
+
+currentJumpE :: EditorM (Maybe (FilePath, Point))
+currentJumpE = do
+    w <- getA currentWindowA
+    return $ currentJump w
 
 -- | Defines an action to be executed when the current buffer is closed. 
 --
