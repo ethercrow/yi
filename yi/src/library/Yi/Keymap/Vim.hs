@@ -728,10 +728,13 @@ defKeymap = Proto template
      -- as cmdFM but these commands are also valid in visual mode
      visOrCmdFM :: [([Event], Int -> YiM ())]
      visOrCmdFM =
-         [([ctrlCh 'l'],      const userForceRefresh)
-         ,([ctrlCh 'z'],      const suspendEditor)
-         ,([ctrlCh 't'],      gotoPrevTagMark)
-         ,([ctrlCh ']'],      const gotoTagCurrentWord) -- TODO add support for 'count'
+         [([ctrlCh 'l'], const userForceRefresh)
+         ,([ctrlCh 'z'], const suspendEditor)
+         ,([ctrlCh 't'], gotoPrevTagMark)
+         ,([ctrlCh 'o'], gotoJump Backward)
+         ,([ctrlCh 'i'], gotoJump Forward)
+         ,([spec KTab], gotoJump Forward) -- same as C-i
+         ,([ctrlCh ']'], const gotoTagCurrentWord) -- TODO add support for 'count'
          ] ++
          (fmap.second.fmap) withEditor
          [([ctrlW, char 'c'], const tryCloseE)
@@ -1785,3 +1788,22 @@ viTagStackPushPos :: YiM ()
 viTagStackPushPos = withEditor $ do bn <- withBuffer0 $ gets identString
                                     p  <- withBuffer0 pointB
                                     pushTagStack bn p
+
+gotoJump :: Direction -> Int -> YiM ()
+gotoJump direction count = do
+    withEditor $ case direction of
+        Forward -> jumpForwardE count
+        Backward -> jumpBackE count
+
+    jump <- withEditor currentJumpE
+
+    case jump of
+        Nothing -> return ()
+        Just (fileName, point) -> do
+
+            currentFileName <- fmap bufInfoFileName $ withBuffer bufInfoB
+
+            unless (currentFileName == fileName) $
+                viFnewE fileName
+
+            withBuffer' $ moveTo point
