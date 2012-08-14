@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
 
 --
 -- Copyright (c) 2008 JP Bernardy
@@ -68,33 +68,61 @@ dummyWindow b = Window False b [] 0 emptyRegion initial 0 emptyJumpList
 data JumpList = JumpList {
   jumps :: [(FilePath, Point)],
   currentJumpIndex :: Int -- possible values are in [-1 .. length jumps]
-} deriving (Typeable)
+} deriving (Typeable, Eq, Show)
 
 emptyJumpList :: JumpList
 emptyJumpList = JumpList [] (-1)
 
-jumpBack :: Int -> Window -> Window
-jumpBack n w | currentJumpIndex (jumpList w) - n < 0 = w
-             | otherwise = w { jumpList = JumpList (jumps (jumpList w))
-                                                   ((currentJumpIndex (jumpList w)) - n)
-                             }
+-- | If window is at the top of jumplist (e.g. just after addJump)
+--   'j' will be appended to jumplist so that user can jump forward
+--   after jumping back
+jumpBack :: (FilePath, Point) -> Int -> Window -> Window
+jumpBack j n w | n <= 0 = w
+               | oldJumps == [] = w
+               | oldIndex - n < 0 = w
+               | atJumpListTip w && (last oldJumps /= j) =
+                   jumpBack j (n + 1) (addJump j w)
+               | not (atJumpListTip w) && oldJumps !! oldIndex /= j =
+                   jumpBack j (n + 1) (addJump j w)
+               | otherwise = w { jumpList = JumpList oldJumps
+                                                   (oldIndex - n)
+                               }
+    where oldIndex = currentJumpIndex (jumpList w)
+          oldJumps = jumps (jumpList w)
 
 jumpForward :: Int -> Window -> Window
-jumpForward n w | currentJumpIndex (jumpList w) + n >= length (jumps (jumpList w)) = w
-                | otherwise = w { jumpList = JumpList (jumps (jumpList w))
-                                                      ((currentJumpIndex (jumpList w)) + n)
+jumpForward n w | n <= 0 = w
+                | oldIndex + n >= length oldJumps = w
+                | otherwise = w { jumpList = JumpList oldJumps
+                                                      (oldIndex + n)
                                 }
+    where oldIndex = currentJumpIndex (jumpList w)
+          oldJumps = jumps (jumpList w)
 
 addJump :: (FilePath, Point) -> Window -> Window
-addJump jump w = w { jumpList = JumpList newJumps  newIndex }
-    where oldIndex = currentJumpIndex (jumpList w)
-          newJumps = (take (oldIndex + 1) (jumps (jumpList w)) ++ [jump])
-          newIndex = length newJumps
+addJump jump w = w { jumpList = JumpList newJumps (length newJumps) }
+    where newJumps | oldJumps == [] = [jump]
+                   | last oldJumps == jump = oldJumps
+                   | otherwise = oldJumps ++ [jump]
+          oldJumps = take (oldIndex + 1) (jumps (jumpList w))
+          oldIndex = currentJumpIndex (jumpList w)
 
 currentJump :: Window -> Maybe (FilePath, Point)
 currentJump w = case jumpList w of
     JumpList [] _ -> Nothing
-    JumpList jumps index -> if index >= 0 && index < length jumps
-                            then Just $ jumps !! index
+    JumpList js index -> if index >= 0 && index < length js
+                            then Just $ js !! index
                             else Nothing
+
+atJumpListTip :: Window -> Bool
+atJumpListTip w = index == length js
+  where index = currentJumpIndex $ jumpList w
+        js    = jumps $ jumpList w
+
+
+hasJumps :: Window -> Bool
+hasJumps w = case jumps (jumpList w) of
+    [] -> False
+    _  -> True
+
 

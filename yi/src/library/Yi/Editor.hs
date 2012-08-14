@@ -713,7 +713,10 @@ markJumpLocationInCurrentWindowE = do
     modA currentWindowA $ addJump (filePath, point)
 
 jumpBackE :: Int -> EditorM ()
-jumpBackE count = modA currentWindowA $ jumpBack count
+jumpBackE count = do
+    filePath <- fmap bufInfoFileName $ withBuffer0 bufInfoB
+    point <- withBuffer0 pointB
+    modA currentWindowA $ jumpBack (filePath, point) count
 
 jumpForwardE :: Int -> EditorM ()
 jumpForwardE count = modA currentWindowA $ jumpForward count

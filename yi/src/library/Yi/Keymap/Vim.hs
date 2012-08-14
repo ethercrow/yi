@@ -549,8 +549,6 @@ defKeymap = Proto template
                   -- The count value, in this case, is interpretted as a percentage instead of a repeat
                   -- count.
                   ,char '%' ?>> return (LineWise, PercentageFile x)])]
-              where gotoFNS :: Int -> BufferM ()
-                    gotoFNS n = gotoLn n >> firstNonSpaceB
 
      -- | movement commands (with exclusive cut/yank semantics)
      moveCmdFM_exclusive :: [(Event, (Int -> ViMove))]
@@ -1414,7 +1412,8 @@ exEval self cmd =
       -- command.
       fn ""           = withEditor clrStatus
 
-      fn s | all isDigit s = withBuffer' (setMarkHere '\'' >> gotoLn (read s) >> firstNonSpaceB)
+      fn s | all isDigit s = do withEditor putJumpHere
+                                withBuffer' $ gotoFNS (read s)
 
       fn "w"          = viWrite
       fn ('w':' ':f)  = viSafeWriteTo $ dropSpace f
@@ -1789,6 +1788,9 @@ viTagStackPushPos = withEditor $ do bn <- withBuffer0 $ gets identString
                                     p  <- withBuffer0 pointB
                                     pushTagStack bn p
 
+gotoFNS :: Int -> BufferM ()
+gotoFNS n = gotoLn n >> firstNonSpaceB
+
 gotoJump :: Direction -> Int -> YiM ()
 gotoJump direction count = do
     withEditor $ case direction of
@@ -1807,3 +1809,8 @@ gotoJump direction count = do
                 viFnewE fileName
 
             withBuffer' $ moveTo point
+
+putJumpHere :: EditorM ()
+putJumpHere = do
+    withBuffer0 $ setMarkHere '\''
+    markJumpLocationInCurrentWindowE
