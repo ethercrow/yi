@@ -8,7 +8,7 @@
 
 module Yi.Editor where
 
-import Control.Monad.RWS hiding (get, put, mapM, forM_)
+import Control.Monad.RWS hiding (get, put, mapM, mapM_, forM_)
 import Data.Accessor.Basic (fromSetGet)
 import Data.Accessor.Template
 import Data.Binary
@@ -316,6 +316,11 @@ withBuffer0 :: BufferM a -> EditorM a
 withBuffer0 f = do
   w <- getA currentWindowA
   withGivenBufferAndWindow0 w (bufkey w) f
+
+withEveryBuffer0 :: BufferM () -> EditorM ()
+withEveryBuffer0 f = do
+  bufferRefs <- getA bufferStackA
+  mapM_ ((flip withGivenBuffer0) f) bufferRefs
 
 currentWindowA :: Accessor Editor Window
 currentWindowA = PL.focusA . windowsA

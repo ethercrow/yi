@@ -264,6 +264,7 @@ pureM f = return . f
 -- | Redraw
 refreshEditor :: YiM ()
 refreshEditor = onYiVar $ \yi var -> do
+        -- e1, e2 .. are consecutive editor states
         let cfg = yiConfig yi
             runOnWins a = runEditor cfg
                                     (do ws <- getA windowsA
@@ -285,10 +286,15 @@ refreshEditor = onYiVar $ \yi var -> do
              pureM focusAllSyntax >>=
              -- Clear "pending updates" and "followUp" from buffers.
              pureM (buffersA ^: (fmap (clearUpdates . clearFollow)))
+
         -- Display the new state of the editor
         UI.refresh (yiUi yi) e7
+
+        -- Reset dirty bit for all buffers
+        let e8 = fst $ runEditor cfg (withEveryBuffer0 $ putA dirtyA False) e7
+
         -- Terminate stale processes.
-        terminateSubprocesses (staleProcess $ buffers e7) yi var {yiEditor = e7}
+        terminateSubprocesses (staleProcess $ buffers e8) yi var {yiEditor = e8}
   where
     clearUpdates = pendingUpdatesA ^= []
     clearFollow = pointFollowsWindowA ^= const False

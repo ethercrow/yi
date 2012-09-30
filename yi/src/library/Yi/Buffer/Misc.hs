@@ -140,6 +140,7 @@ module Yi.Buffer.Misc
   , BufferId
   , file
   , lastSyncTimeA
+  , dirtyA
   )
 where
 
@@ -229,6 +230,7 @@ data Attributes = Attributes
                 , winMarks :: !(M.Map WindowRef WinMarks)
                 , lastActiveWindow :: !Window
                 , lastSyncTime :: !UTCTime -- ^ time of the last synchronization with disk
+                , dirty :: Bool -- ^ has buffer been modified since last render?
                 , readOnly :: !Bool                -- ^ read-only flag
                 , inserting :: !Bool -- ^ the keymap is ready for insertion into this buffer
                 , pointFollowsWindow :: !(WindowRef -> Bool)
@@ -237,12 +239,12 @@ data Attributes = Attributes
 $(nameDeriveAccessors ''Attributes (\n -> Just (n ++ "AA")))
 
 instance Binary Attributes where
-    put (Attributes n b u bd pc pu selectionStyle_ _proc wm law lst ro ins _pfw) = do
+    put (Attributes n b u bd pc pu selectionStyle_ _proc wm law lst isDirty ro ins _pfw) = do
           put n >> put b >> put u >> put bd
           put pc >> put pu >> put selectionStyle_ >> put wm
-          put law >> put lst >> put ro >> put ins
+          put law >> put lst >> put isDirty >> put ro >> put ins
     get = Attributes <$> get <*> get <*> get <*> 
-          get <*> get <*> get <*> get <*> pure I.End <*> get <*> get <*> get <*> get <*> get <*> pure (const False)
+          get <*> get <*> get <*> get <*> pure I.End <*> get <*> get <*> get <*> get <*> get <*> get <*> pure (const False)
 
 instance Binary UTCTime where
     put (UTCTime x y) = put (fromEnum x) >> put (fromEnum y)
@@ -318,6 +320,9 @@ lastActiveWindowA = lastActiveWindowAA . attrsA
 
 lastSyncTimeA :: Accessor FBuffer UTCTime
 lastSyncTimeA = lastSyncTimeAA . attrsA
+
+dirtyA :: Accessor FBuffer Bool
+dirtyA = dirtyAA . attrsA
 
 undosA :: Accessor FBuffer URList
 undosA = undosAA . attrsA
@@ -651,6 +656,7 @@ newB unique nm s =
             , winMarks = M.empty
             , lastActiveWindow = dummyWindow unique
             , lastSyncTime = epoch
+            , dirty = False
             , readOnly = False
             , inserting = True
             , pointFollowsWindow = const False
@@ -713,6 +719,7 @@ applyUpdate update = do
         let reversed = reverseUpdateI update
         modifyBuffer (applyUpdateI update)
         modA undosA $ addChangeU $ AtomicChange $ reversed
+        putA dirtyA True
         tell [update]
    -- otherwise, just ignore.
 
