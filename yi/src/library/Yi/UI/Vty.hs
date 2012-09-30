@@ -51,6 +51,7 @@ data UI = UI {  vty       :: Vty             -- ^ Vty
              , uiThread   :: ThreadId
              , uiEnd      :: MVar ()
              , uiRefresh  :: MVar ()
+             , uiCache    :: IORef [CachedRenderedWindow]
              , uiEditor   :: IORef Editor    -- ^ Copy of the editor state, local to the UI, used to show stuff when the window is resized.
              , config     :: Config
              , oAttrs     :: TerminalAttributes
@@ -84,7 +85,8 @@ start cfg ch outCh editor = do
           endUI <- newEmptyMVar
           tuiRefresh <- newEmptyMVar
           editorRef <- newIORef editor
-          let result = UI v sz tid endUI tuiRefresh editorRef cfg oattr
+          cache <- newIORef []
+          let result = UI v sz tid endUI tuiRefresh cache editorRef cfg oattr
               -- | Action to read characters into a channel
               getcLoop = maybe (getKey >>= ch >> getcLoop) (const (return ())) =<< tryTakeMVar endUI
 
@@ -192,31 +194,85 @@ layoutAction ui = do
     withEditor . put =<< io . layout ui =<< withEditor get
     withEditor $ mapM_ (flip withWindowE snapInsB) =<< getA windowsA
 
+data CachedRenderedWindow = CachedRenderedWindow {
+    cachedWindowRef :: WindowRef,
+    cachedBufferRef :: BufferRef,
+    cachedWidth :: Int,
+    cachedHeight :: Int,
+    cachedFromMarkPosition :: Point,
+    cachedRendered :: Rendered
+}
+
+reuseOrRender :: [CachedRenderedWindow] -> UI -> Editor -> Int
+                 -> (Window, Bool) -> IO CachedRenderedWindow
+reuseOrRender cached ui e cols (w, hasFocus) =
+  case find matcher cached of
+    Just r  -> return r {
+                 cachedRendered = Rendered {
+                                    picture = picture (cachedRendered r),
+                                    cursor = cur
+                                  }
+               }
+    Nothing -> return CachedRenderedWindow {
+                 cachedWindowRef = wkey w,
+                 cachedBufferRef = bufkey w,
+                 cachedWidth = cols,
+                 cachedHeight = height w,
+                 cachedFromMarkPosition = fromMarkPosition,
+                 cachedRendered = rerender
+               }
+    where (fromMarkPosition, isBufferDirty, cur) = snd $ runEditor (config ui)
+               (withGivenBuffer0 (bufkey w) $ do
+                 (Just (MarkSet fromM _ _)) <- getMarks w
+                 from <- getMarkPointB fromM
+                 dirty <- getA dirtyA
+                 c <- cursorCoordinatesB False
+                 return (from, dirty, c))
+               e
+
+          matcher (CachedRenderedWindow wref bref wwidth h from _) = not isBufferDirty &&
+             (wref, bref, wwidth, h, from) == (wkey w, bufkey w, cols, height w, fromMarkPosition)
+
+          rerender = renderWindow (configUI $ config ui) e cols (w, hasFocus)
+
+flattenPointedList :: PL.PointedList a -> [a]
+flattenPointedList (PL.PointedList rp f s) = rp ++ [f] ++ s
+
 -- | Redraw the entire terminal from the UI.
 refresh :: UI -> Editor -> IO ()
 refresh ui e = do
-  (_,xss) <- readRef (scrsize ui)
+  (_, cols) <- readRef (scrsize ui)
   let ws = windows e
       tabBarHeight = if hasTabBar e ui then 1 else 0
       windowStartY = tabBarHeight
       (cmd, cmdSty) = statusLineInfo e
-      niceCmd = arrangeItems cmd xss (maxStatusHeight e)
-      formatCmdLine text = withAttributes statusBarStyle (take xss $ text ++ repeat ' ')
-      renders = fmap (renderWindow (configUI $ config ui) e xss) (PL.withFocus ws)
+      niceCmd = arrangeItems cmd cols (maxStatusHeight e)
+      formatCmdLine text = withAttributes statusBarStyle (take cols $ text ++ repeat ' ')
       startXs = scanrT (+) windowStartY (fmap height ws)
-      wImages = fmap picture renders
-      statusBarStyle = ((appEndo <$> cmdSty) <*> baseAttributes) $ configStyle $ configUI $ config $ ui
-      tabBarImages = renderTabBar e ui xss
+      statusBarStyle = ((appEndo <$> cmdSty) <*> baseAttributes)
+                     $ configStyle $ configUI $ config ui
+      tabBarImages = renderTabBar e ui cols
   logPutStrLn "refreshing screen."
   logPutStrLn $ "startXs: " ++ show startXs
-  Vty.update (vty $ ui) 
+
+  let visibleWindows = PL.withFocus ws
+
+  cached <- readIORef (uiCache ui)
+
+  renders <- sequence $ fmap (reuseOrRender cached ui e cols) visibleWindows
+
+  writeIORef (uiCache ui) (flattenPointedList renders)
+
+  let wImages = fmap (picture . cachedRendered) renders
+
+  Vty.update (vty ui)
       ( pic_for_image ( vert_cat tabBarImages
                         <->
                         vert_cat (toList wImages) 
                         <-> 
                         vert_cat (fmap formatCmdLine niceCmd)
                       )
-      ) { pic_cursor = case cursor (PL.focus renders) of
+      ) { pic_cursor = case (cursor . cachedRendered) (PL.focus renders) of
                         Just (y,x) -> Cursor (toEnum x) (toEnum $ y + PL.focus startXs) 
                         -- Add the position of the window to the position of the cursor
                         Nothing -> NoCursor
@@ -320,7 +376,36 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         filler = take w (configWindowFill cfg : repeat ' ')
     
         pict = vert_cat (take h' (rendered ++ repeat (withAttributes eofsty filler)) ++ modeLines)
-  
+
+lines' :: [(Char,a)] -> [[(Char,a)]]
+lines' [] =  []
+lines' s  = case s' of
+              []          -> [l]
+              ((_,x):s'') -> (l++[(' ',x)]) : lines' s''
+            where
+            (l, s') = break ((== '\n') . fst) s
+
+wrapLine :: Int -> [x] -> [[x]]
+wrapLine _ [] = []
+wrapLine n l = let (x,rest) = splitAt n l in x : wrapLine n rest
+
+expandGraphic :: Int -> (Char, a) -> [(Char, a)]
+expandGraphic tw ('\t', p) = replicate tw (' ', p)
+expandGraphic _ (c,p)
+  | ord c < 32 = [('^',p),(chr (ord c + 64),p)]
+  | otherwise = [(c,p)]
+
+cursorPosition :: Int -> Int -> Int -> Point -> [(Point, Char)] -> Maybe (Int, Int)
+cursorPosition h w tw point text = result
+  where
+    result = listToMaybe [(y,x) | (y,l) <- zip [0..] lns0,
+                                  (x,(_char,(_attr,p))) <- zip [0..] l,
+                                  p == point]
+    wrapped = concatMap (wrapLine w) $ map (concatMap (expandGraphic tw))
+            $ take h $ lines' bufData
+    lns0 = take h wrapped
+    bufData = map (\(p, c) -> (c, (undefined, p))) text
+
 -- | Renders text in a rectangle.
 -- This also returns 
 -- * the index of the last character fitting in the rectangle
@@ -343,12 +428,13 @@ drawText h w topPoint point tabWidth bufData
 
   -- the number of lines that taking wrapping into account,
   -- we use this to calculate the number of lines displayed.
-  wrapped = concatMap (wrapLine w) $ map (concatMap expandGraphic) $ take h $ lines' $ bufData
+  wrapped = concatMap (wrapLine w) $ map (concatMap (expandGraphic tabWidth))
+          $ take h $ lines' bufData
   lns0 = take h wrapped
 
   bottomPoint = case lns0 of 
                  [] -> topPoint 
-                 _ -> snd $ snd $ last $ last $ lns0
+                 _ -> snd $ snd $ last $ last lns0
 
   pntpos = listToMaybe [(y,x) | (y,l) <- zip [0..] lns0, (x,(_char,(_attr,p))) <- zip [0..] l, p == point]
 
@@ -367,22 +453,6 @@ drawText h w topPoint point tabWidth bufData
   -- that we add a blank character where the \n was, so the
   -- cursor can be positioned there.
 
-  lines' :: [(Char,a)] -> [[(Char,a)]]
-  lines' [] =  []
-  lines' s  = case s' of
-                []          -> [l]
-                ((_,x):s'') -> (l++[(' ',x)]) : lines' s''
-              where
-              (l, s') = break ((== '\n') . fst) s
-
-  wrapLine :: Int -> [x] -> [[x]]
-  wrapLine _ [] = []
-  wrapLine n l = let (x,rest) = splitAt n l in x : wrapLine n rest
-                                      
-  expandGraphic ('\t', p) = replicate tabWidth (' ', p)
-  expandGraphic (c,p) 
-    | ord c < 32 = [('^',p),(chr (ord c + 64),p)]
-    | otherwise = [(c,p)]
 
 withAttributes :: Attributes -> String -> Image
 withAttributes sty str = Vty.string (attributesToAttr sty Vty.def_attr) str

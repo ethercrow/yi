@@ -414,6 +414,21 @@ snapScreenB style = do
             setMarkPointB f i
             return True
 
+cursorCoordinatesB :: Bool -> BufferM (Maybe (Int, Int))
+cursorCoordinatesB wrap = do
+  point <- pointB
+  from <- getMarkPointB =<< fromMark <$> askMarks
+  curLine <- lineOf point
+  fromLine <- lineOf from
+  x <- curCol
+  let y = curLine - fromLine
+  cursorVisible <- pointInWindowB point
+  (x', y') <- if wrap then return (x, y) else do
+     -- TODO handle wrapping
+     return (x, y)
+
+  return $! if cursorVisible then Just (y', x')
+                             else Nothing
 
 -- | Move to @n@ lines down from top of screen
 downFromTosB :: Int -> BufferM ()
