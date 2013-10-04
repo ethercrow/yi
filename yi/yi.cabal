@@ -96,8 +96,10 @@ library
     Yi.Buffer.HighLevel
     Yi.Buffer.Indent
     Yi.Buffer.Normal
+    Yi.Buffer.Mode
     Yi.Buffer.Misc
     Yi.Buffer.Region
+    Yi.Buffer.Run
     Yi.Buffer.TextUnit
     Yi.Buffer.Undo
     Yi.Command

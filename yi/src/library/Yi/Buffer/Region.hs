@@ -32,6 +32,7 @@ import Data.Char (isSpace)
 import Data.List (filter, length, sort, dropWhile)
 
 import Yi.Buffer.Misc
+import Yi.Buffer.Mode
 import Yi.Region
 import Yi.String (lines')
 import Yi.Window (winRegion)

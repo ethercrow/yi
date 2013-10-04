@@ -53,6 +53,7 @@ import Data.List (sort)
 
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
+import Yi.Buffer.Mode
 import Yi.Buffer.Region
 import Yi.Buffer.TextUnit
 import Yi.Dynamic

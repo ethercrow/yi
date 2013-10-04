@@ -19,6 +19,7 @@ import Data.Tuple (swap)
 
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
+import Yi.Buffer.Mode
 import Yi.Buffer.Normal
 import Yi.Buffer.Region
 import Yi.String

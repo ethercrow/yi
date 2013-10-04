@@ -62,7 +62,7 @@ module Yi.Config.Simple (
   -- * Module exports
   -- we can't just export 'module Yi', because then we would get clashes with Yi.Config
   module Yi.Boot,
---  module Yi.Buffer.Misc,
+--  module Yi.Buffer.Mode,
   module Yi.Core,
   module Yi.Dired,
   module Yi.File,
@@ -80,7 +80,7 @@ module Yi.Config.Simple (
  ) where
 
 import Yi.Boot
---import Yi.Buffer.Misc hiding(modifyMode)
+--import Yi.Buffer.Mode hiding(modifyMode)
 import Yi.Core hiding(modifyMode, (%=))
 import Yi.Config.Default
 import Yi.Config.Misc

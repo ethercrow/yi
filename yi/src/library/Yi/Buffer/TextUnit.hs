@@ -37,6 +37,7 @@ import Data.Char
 
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
+import Yi.Buffer.Mode
 import Yi.Buffer.Region
 
 -- | Designate a given "unit" of text.

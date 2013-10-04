@@ -18,7 +18,7 @@ import qualified Data.ByteString.Char8 as B (pack, unpack, readFile, ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BL (fromChunks)
 
 import Yi.Buffer.HighLevel (replaceBufferContent, topB)
-import Yi.Buffer.Misc (bufferDynamicValueA, BufferM)
+import Yi.Buffer.Mode (bufferDynamicValueA, BufferM)
 import Yi.Buffer.Normal (regionOfB, TextUnit(Document))
 import Yi.Buffer.Region (readRegionB)
 import Yi.Dynamic

@@ -157,7 +157,7 @@ startNoMsg cfg ch outCh ed = do
     
   im <- imMulticontextNew
   imContextSetUsePreedit im False  -- handler for preedit string not implemented  
-  im `on` imContextCommit $ mapM_ (\k -> ch $ Event (KASCII k) [])  -- Yi.Buffer.Misc.insertN for atomic input?
+  im `on` imContextCommit $ mapM_ (\k -> ch $ Event (KASCII k) [])  -- Yi.Buffer.Mode.insertN for atomic input?
 
   set win [ windowDefaultWidth  := 700
           , windowDefaultHeight := 900

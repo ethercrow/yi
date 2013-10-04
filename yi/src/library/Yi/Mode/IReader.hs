@@ -4,7 +4,7 @@
 module Yi.Mode.IReader where
 
 import Data.Char (intToDigit)
-import Yi.Buffer.Misc
+import Yi.Buffer.Mode
 import Yi.IReader
 import Yi.Keymap
 import Yi.Keymap.Keys
