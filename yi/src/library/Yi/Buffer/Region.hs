@@ -31,6 +31,7 @@ import Data.Algorithm.Diff
 import Data.Char (isSpace)
 import Data.List (filter, length, sort, dropWhile)
 
+import Yi.Buffer.Basic
 import Yi.Buffer.Misc
 import Yi.Buffer.Mode
 import Yi.Region
@@ -45,13 +46,14 @@ deleteRegionB :: Region -> BufferM ()
 deleteRegionB r = deleteNAt (regionDirection r) (fromIntegral (regionEnd r ~- regionStart r)) (regionStart r)
 
 -- | Read an arbitrary part of the buffer
+-- TODO: merge these two functions
 readRegionB :: Region -> BufferM String
-readRegionB r = nelemsB (fromIntegral (regionEnd r - i)) i
-    where i = regionStart r
+readRegionB r = nelemsB (fromSize (regionEnd r ~- rstart)) rstart
+    where rstart = regionStart r
 
 readRegionB' :: Region -> BufferM Rope
-readRegionB' r = nelemsB' (fromIntegral (regionEnd r - i)) i
-    where i = regionStart r
+readRegionB' r = nelemsB' (fromSize (regionEnd r ~- rstart)) rstart
+    where rstart = regionStart r
 
 -- | Replace a region with a given string.
 replaceRegionB :: Region -> String -> BufferM ()

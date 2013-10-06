@@ -11,6 +11,7 @@ import qualified Data.Map as M
 import Data.Maybe (isNothing)
 import Control.Monad.RWS.Strict (runRWS)
 
+import Yi.Buffer.Basic
 import Yi.Buffer.Implementation
 import Yi.Buffer.Mode
 import Yi.Window
@@ -33,9 +34,9 @@ runBufferFull w b f =
                 newMarkValues <- if wkey (b ^. lastActiveWindowA) == initial
                     then return
                         -- no previous window, create some marks from scratch.
-                         MarkSet { insMark = MarkValue 0 Forward,
-                                   selMark = MarkValue 0 Backward, -- sel
-                                   fromMark = MarkValue 0 Backward } -- from
+                         MarkSet { insMark = MarkValue (Point 0) Forward,
+                                   selMark = MarkValue (Point 0) Backward, -- sel
+                                   fromMark = MarkValue (Point 0) Backward } -- from
                     else do
                         Just mrks  <- getsA winMarksA (M.lookup $ wkey (b ^. lastActiveWindowA))
                         forM mrks getMarkValueB

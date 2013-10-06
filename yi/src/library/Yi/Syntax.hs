@@ -77,7 +77,7 @@ instance Functor (Scanner st) where
 data Cache state result = Cache [state] result
 
 emptyFileScan :: Scanner Point Char
-emptyFileScan = Scanner { scanInit = 0, scanRun = const [], scanLooked = id, scanEmpty = error "emptyFileScan: no scanEmpty" }
+emptyFileScan = Scanner { scanInit = (Point 0), scanRun = const [], scanLooked = id, scanEmpty = error "emptyFileScan: no scanEmpty" }
 
 -- | This takes as input a scanner that returns the "full" result at
 -- each element in the list; perhaps in a different form for the

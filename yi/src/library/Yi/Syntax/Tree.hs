@@ -50,7 +50,7 @@ allToks :: Foldable t => t a -> [a]
 allToks = toList
 
 tokAtOrBefore :: Foldable t => Point -> t (Tok t1) -> Maybe (Tok t1)
-tokAtOrBefore p res = listToMaybe $ reverse $ toksInRegion (mkRegion 0 (p+1)) res
+tokAtOrBefore p res = listToMaybe $ reverse $ toksInRegion (mkRegion (Point 0) (p +~ Size 1)) res
 
 toksInRegion :: Foldable t1 => Region -> t1 (Tok t) -> [Tok t]
 toksInRegion reg = takeWhile (\t -> tokBegin t <= regionEnd   reg) . dropWhile (\t -> tokEnd t < regionStart reg) . toksAfter (regionStart reg)
@@ -234,8 +234,8 @@ getLastElement :: Foldable t => t a -> Maybe a
 getLastElement tree = getLast $ foldMap (Last . Just) tree
 
 getFirstOffset, getLastOffset :: Foldable t => t (Tok t1) -> Point
-getFirstOffset = maybe 0 tokBegin . getFirstTok
-getLastOffset = maybe 0 tokEnd . getLastTok
+getFirstOffset = maybe (Point 0) tokBegin . getFirstTok
+getLastOffset = maybe (Point 0) tokEnd . getLastTok
 
 subtreeRegion :: Foldable t => t (Tok t1) -> Region
 subtreeRegion t = mkRegion (getFirstOffset t) (getLastOffset t) 
@@ -288,11 +288,11 @@ instance Arbitrary (Test TT) where
     shrink (Bin l r) = [l,r] ++  (Bin <$> shrink l <*> pure r) ++  (Bin <$> pure l <*> shrink r)
 
 tAt :: Point -> TT
-tAt idx =  Tok () 1 (Posn (idx * 2) 0 0)
+tAt idx =  Tok () 1 (Posn (Point (fromPoint idx * 2)) 0 0)
 
 arbitraryFromList :: [Int] -> Gen (Test TT)
 arbitraryFromList [] = error "arbitraryFromList expects non empty lists"
-arbitraryFromList [x] = pure (Leaf (tAt (fromIntegral x)))
+arbitraryFromList [x] = pure (Leaf (tAt (Point x)))
 arbitraryFromList xs = do
   m <- choose (1,length xs - 1)
   let (l,r) = splitAt m xs
@@ -304,7 +304,7 @@ instance Eq (Tok a) where
 instance Arbitrary Region where
     arbitrary = sized $ \size -> do
         x0 :: Int <- arbitrary
-        return $ mkRegion (fromIntegral x0) (fromIntegral (x0 + size))
+        return $ mkRegion (Point x0) (Point (x0 + size))
 
 newtype NTTT = N (Node (Test TT)) deriving Show
 
@@ -323,14 +323,14 @@ arbitraryPath (Bin l r) = do
 
 regionInside :: Region -> Gen Region
 regionInside r = do
-  b :: Int <- choose (fromIntegral $ regionStart r, fromIntegral $ regionEnd r)
-  e :: Int <- choose (b, fromIntegral $ regionEnd r)
-  return $ mkRegion (fromIntegral b) (fromIntegral e)
+  b :: Int <- choose (fromPoint $ regionStart r, fromPoint $ regionEnd r)
+  e :: Int <- choose (b, fromPoint $ regionEnd r)
+  return $ mkRegion (Point b) (Point e)
 
 pointInside :: Region -> Gen Point
 pointInside r = do
-  p :: Int <- choose (fromIntegral $ regionStart r, fromIntegral $ regionEnd r)
-  return (fromIntegral p)
+  p <- choose (fromPoint $ regionStart r, fromPoint $ regionEnd r)
+  return $ Point p
 
 prop_fromLeafAfterToFinal :: NTTT -> Property
 prop_fromLeafAfterToFinal (N n) = let

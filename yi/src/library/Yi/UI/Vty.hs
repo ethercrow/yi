@@ -306,7 +306,7 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         wsty = attributesToAttr ground Vty.def_attr
         eofsty = appEndo (eofStyle sty) ground
         (point, _) = runBuffer win b pointB
-        (eofPoint, _) = runBuffer win b sizeB
+        (eofPoint, _) = runBuffer win b lastB
         region = mkSizeRegion fromMarkPoint (Size (w*h'))
         -- Work around a problem with the mini window never displaying it's contents due to a
         -- fromMark that is always equal to the end of the buffer contents.
@@ -330,7 +330,7 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
                                 fromMarkPoint
                                 point 
                                 tabWidth
-                                ([(c,(wsty, (-1))) | c <- prompt] ++ bufData ++ [(' ',(wsty, eofPoint))])
+                                ([(c,(wsty, Point (-1))) | c <- prompt] ++ bufData ++ [(' ',(wsty, eofPoint))])
                              -- we always add one character which can be used to position the cursor at the end of file
         (modeLine0, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
         modeLine = if notMini then Just modeLine0 else Nothing

@@ -205,7 +205,7 @@ setMarkText txt mi = do
     let r = mkRegion start end
     modifyRegionClever (const txt) r
     when (start == end) $
-        setMarkPointB (endMark mi) (end + (Point $ length txt))
+        setMarkPointB (endMark mi) (end +~ (Size $ length txt))
         
 withSimpleRegion (SimpleMarkInfo _ s) f = do
     p <- getMarkPointB s
@@ -248,7 +248,7 @@ adjMarkRegion m = do
   
     adjustStart s e = do
         txt <- readRegionB (mkRegion s e)
-        let sP = s + (Point . length $ takeWhile isSpace txt)
+        let sP = s +~ (Size . length $ takeWhile isSpace txt)
         when (sP > s) $ do
             setMarkPointB (startMark m) sP
         return sP

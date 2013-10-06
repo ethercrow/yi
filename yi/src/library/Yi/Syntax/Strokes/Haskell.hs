@@ -64,7 +64,7 @@ getStr tk point begin _end t0 = getStrokes' t0
               -- note that testing this on the "Paren" node actually forces the parsing of the
               -- right paren, undermining online behaviour.
               | (posnOfs $ tokPosn $ l) ==
-                    point || (posnOfs $ tokPosn $ r) == point - 1
+                    point || (posnOfs $ tokPosn $ r) == point -~ 1
                = pStyle hintStyle l <> com c <> getStrokesL g
                       <> pStyle hintStyle r <> com c'
               | otherwise  = tk l <> com c <> getStrokesL g

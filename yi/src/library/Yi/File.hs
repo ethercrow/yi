@@ -144,7 +144,7 @@ fwriteE = fwriteBufferE =<< gets currentBuffer
 -- | Write a given buffer to disk if it is associated with a file.
 fwriteBufferE :: BufferRef -> YiM ()
 fwriteBufferE bufferKey = 
-  do nameContents <- withGivenBuffer bufferKey ((,) <$> gets file <*> streamB Forward 0)
+  do nameContents <- withGivenBuffer bufferKey ((,) <$> gets file <*> streamB Forward (Point 0))
      case nameContents of
        (Just f, contents) -> do liftIO $ R.writeFile f contents
                                 now <- io getCurrentTime

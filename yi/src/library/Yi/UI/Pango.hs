@@ -561,7 +561,7 @@ updatePango ui font w b layout = do
                               from     <- getMarkPointB =<< fromMark <$> askMarks
                               rope     <- streamB Forward from
                               p        <- pointB
-                              bufEnd     <- sizeB
+                              bufEnd     <- lastB
                               let content = fst $ Rope.splitAtLine winh rope
                               -- allow BOS offset to be just after the last line
                               let addNL = if Rope.countNewLines content == winh

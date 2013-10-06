@@ -121,7 +121,7 @@ emptyEditor = Editor {
        ,maxStatusHeight = 1
        ,onCloseActions = M.empty
        }
-        where buf = newB 0 (Left "console") (R.fromString "")
+        where buf = newB (BufferRef 0) (Left "console") (R.fromString "")
               win = (dummyWindow (bkey buf)) {wkey = WindowRef 1, isMini = False}
               tab = makeTab1 2 win
 

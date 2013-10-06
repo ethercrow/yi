@@ -382,7 +382,7 @@ storagePicture i slf = do
 
 bufferPicture :: Editor -> UIStyle -> FBuffer -> Window -> CUInt -> Picture
 bufferPicture ed sty buf win i = fmap (first fromIntegral) $ fst $ runBuffer win buf $ do
-  e <- sizeB
+  e <- lastB
   (attributesPictureB sty (currentRegex ed) (mkRegion (fromIntegral i) e) [])
 
 type TextStorage = YiTextStorage ()

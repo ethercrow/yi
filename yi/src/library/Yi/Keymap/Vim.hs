@@ -258,9 +258,9 @@ savingDeleteB :: BufferM () -> BufferM ()
 savingDeleteB action = do
   ins0 <- getViIns
   oldP <- pointB
-  s1   <- sizeB
+  s1   <- lastB
   action
-  s2   <- sizeB
+  s2   <- lastB
   newP <- pointB
   let diff   = s2 ~- s1
       endP   = viEndPos ins0
@@ -1236,7 +1236,7 @@ exMode self prompt = do
                       -- now modifying minibuffer
                       withBuffer $ do
                           point <- pointB
-                          deleteNAt Forward 1 (point-1)
+                          deleteNAt Forward 1 (point -~ 1)
                           insertN sanitizedFileName
                    | otherwise = exFileNameComplete f
 

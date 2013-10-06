@@ -87,7 +87,7 @@ mkSizeRegion x s = mkRegion x (x +~ s)
 
 -- | The empty region
 emptyRegion :: Region
-emptyRegion = Region Forward 0 0 
+emptyRegion = Region Forward (Point 0) (Point 0)
 
 -- | True if the given point is inside the given region.
 inRegion :: Point -> Region -> Bool

@@ -161,7 +161,7 @@ shiftDBinding = VimBindingE prereq action
                   _ ->  do
                       reg' <- withBuffer0 $ convertRegionToStyleB reg LineWise
                       reg'' <- withBuffer0 $ mkRegionOfStyleB (regionStart reg')
-                                                              (regionEnd reg' -~ Size 1)
+                                                              (regionEnd reg' -~ 1)
                                                               Exclusive
                       discard $ operatorApplyToRegionE opDelete 1 $ StyledRegion LineWise reg''
               resetCountE

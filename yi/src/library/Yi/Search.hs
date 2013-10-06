@@ -258,9 +258,9 @@ isearchFunE fun = do
     (p:_) -> onSuccess p
     [] -> do matchesAfterWrap <- withBuffer0 $ do
                case direction of
-                 Forward -> moveTo 0
+                 Forward -> topB
                  Backward -> do
-                   bufferLength <- sizeB
+                   bufferLength <- lastB
                    moveTo bufferLength
                regexB direction srch
 
@@ -305,17 +305,17 @@ isearchNext0 newDir = do
 isearchNext :: Direction -> EditorM ()
 isearchNext direction = do
   Isearch ((current,p0,_dir):rest) <- getDynamic
-  withBuffer0 $ moveTo (regionStart p0 + startOfs)
+  withBuffer0 $ moveTo (regionStart p0 +~ Size startOfs)
   mp <- withBuffer0 $ do
     regexB direction (makeISearch current)
   case mp of
     [] -> do 
                   endPoint <- withBuffer0 $ do 
                           moveTo (regionEnd p0) -- revert to offset we were before.
-                          sizeB   
+                          lastB   
                   printMsg $ "isearch: end of document reached"
                   let wrappedOfs = case direction of
-                                     Forward -> mkRegion 0 0
+                                     Forward -> mkRegion (Point 0) (Point 0)
                                      Backward -> mkRegion endPoint endPoint
                   setDynamic $ Isearch ((current,wrappedOfs,direction):rest) -- prepare to wrap around.
     (p:_) -> do   

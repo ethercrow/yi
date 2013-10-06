@@ -105,7 +105,7 @@ getStrokes point _begin _end t0 = appEndo result []
               -- left paren wasn't matched: paint it in red.
               -- note that testing this on the "Paren" node actually forces the parsing of the
               -- right paren, undermining online behaviour.
-              | (posnOfs $ tokPosn $ l) == point || (posnOfs $ tokPosn $ r) == point - 1
+              | (posnOfs $ tokPosn $ l) == point || (posnOfs $ tokPosn $ r) == point -~ 1
                = hintPaint
               | otherwise = normalPaint
               where normalPaint = ts id l <> getStrokes' g <> tsEnd id l r

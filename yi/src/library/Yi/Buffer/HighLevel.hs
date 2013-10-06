@@ -39,11 +39,11 @@ moveToEol = maybeMoveB Line Forward
 
 -- | Move cursor to origin
 topB :: BufferM ()
-topB = moveTo 0
+topB = moveTo $ Point 0
 
 -- | Move cursor to end of buffer
 botB :: BufferM ()
-botB = moveTo =<< sizeB
+botB = moveTo =<< lastB
 
 -- | Move left if on eol, but not on blank line
 leftOnEol :: BufferM ()
@@ -197,7 +197,7 @@ atEof = atBoundaryB Document Forward
 atLastLine :: BufferM Bool
 atLastLine = savingPointB $ do
     moveToEol
-    (==) <$> sizeB <*> pointB
+    (==) <$> lastB <*> pointB
 
 -- | Get the current line and column number
 getLineAndCol :: BufferM (Int, Int)
@@ -347,18 +347,18 @@ data BufferFileInfo =
 -- | File info, size in chars, line no, col num, char num, percent
 bufInfoB :: BufferM BufferFileInfo
 bufInfoB = do
-    s <- sizeB
+    end <- lastB
     p <- pointB
     m <- gets isUnchangedBuffer
     l <- curLn
     c <- curCol
     nm <- gets identString
     let bufInfo = BufferFileInfo { bufInfoFileName = nm
-                                 , bufInfoSize     = fromIntegral s
+                                 , bufInfoSize     = fromPoint end
                                  , bufInfoLineNo   = l
                                  , bufInfoColNo    = c
                                  , bufInfoCharNo   = p
-                                 , bufInfoPercent  = getPercent p s
+                                 , bufInfoPercent  = getPercent p end
                                  , bufInfoModified = not m
                                  }
     return bufInfo
@@ -422,7 +422,7 @@ scrollCursorToBottomB :: BufferM ()
 scrollCursorToBottomB = do
     MarkSet _ i _ <- markLines
     r <- winRegionB
-    t <- lineOf (regionEnd r - 1)
+    t <- lineOf (regionEnd r -~ 1)
     scrollB $ i - t
 
 -- | Scroll by n lines.
@@ -495,7 +495,7 @@ downFromTosB n = do
 upFromBosB :: Int -> BufferM ()
 upFromBosB n = do
   r <- winRegionB
-  moveTo (regionEnd r - 1)
+  moveTo (regionEnd r -~ 1)
   moveToSol
   replicateM_ n lineUp
 

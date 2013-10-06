@@ -12,14 +12,13 @@ import Data.Ix
 -- | Direction of movement inside a buffer
 data Direction = Backward
                | Forward
-                 deriving (Eq,Ord,Typeable,Show,Bounded,Enum)
+                 deriving (Eq, Ord, Typeable, Show, Bounded, Enum)
 
 $(derive makeBinary ''Direction)
 
 reverseDir :: Direction -> Direction
 reverseDir Forward = Backward
 reverseDir Backward = Forward
-
 
 -- | reverse if Backward
 mayReverse :: Direction -> [a] -> [a]
@@ -34,12 +33,11 @@ directionElim Backward b _ = b
 directionElim Forward  _ f = f
 
 -- | A mark in a buffer
-newtype Mark = Mark {markId::Int} deriving (Eq, Ord, Show, Typeable, Binary)
+newtype Mark = Mark {markId :: Int} deriving (Eq, Ord, Show, Typeable, Binary)
 
 -- | Reference to a buffer.
 newtype BufferRef = BufferRef Int
     deriving (Eq, Ord, Typeable, Binary)
-deriving instance Num BufferRef
 
 instance Show BufferRef where
     show (BufferRef r) = "B#" ++ show r
@@ -48,9 +46,6 @@ instance Show BufferRef where
 newtype Point = Point {fromPoint :: Int}           -- offset in the buffer (#codepoints, NOT bytes)
     deriving (Eq, Ord, Enum, Bounded, Typeable, Binary, Ix)
 
-deriving instance Num Point
-deriving instance Real Point
-deriving instance Integral Point
 instance Show Point where
     show (Point p) = show p
 

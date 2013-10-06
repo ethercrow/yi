@@ -161,7 +161,7 @@ withMinibufferFin prompt possibilities act
 completionFunction :: (String -> YiM String) -> YiM ()
 completionFunction f = do
   p <- withBuffer pointB
-  let r = mkRegion 0 p
+  let r = mkRegion (Point 0) p
   text <- withBuffer $ readRegionB r
   compl <- f text
   -- it's important to do this before removing the text,

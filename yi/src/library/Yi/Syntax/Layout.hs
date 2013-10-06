@@ -140,7 +140,7 @@ layoutHandler isSpecial parens isIgnored (openT, closeT, nextT) isGroupOpen lexS
               
 
 maxPosn :: Posn
-maxPosn = Posn (-1) (-1) 0 
+maxPosn = Posn (Point (-1)) (-1) 0 
 -- HACK! here we have collusion between using (-1) here and the parsing of 
 -- OnlineTrees, which relies on the position of the last token to stop
 -- the parsing.

@@ -359,7 +359,7 @@ diredRefresh = do
                     insertN $ dir ++ ":\n"
                     p <-pointB
                     -- paint header
-                    addOverlayB $ mkOverlay UserLayer (mkRegion 0 (p-2)) headStyle
+                    addOverlayB $ mkOverlay UserLayer (mkRegion (Point 0) (p -~ 2)) headStyle
                     ptsList <- mapM insertDiredLine $ zip3 strss' stys strs
                     putA bufferDynamicValueA ds{diredFilePoints=ptsList,
                                                 diredNameCol   =namecol}
@@ -368,7 +368,7 @@ diredRefresh = do
                     diredRefreshMark
                     ---- no modifications after this line
                     putA readOnlyA True
-                    when (null currFile) $ moveTo (p-2)
+                    when (null currFile) $ moveTo (p -~ 2)
                     case getRow currFile ptsList of
                       Just rpos -> filenameColOf $ moveTo rpos
                       Nothing   -> filenameColOf lineDown
@@ -530,7 +530,7 @@ diredRefreshMark = do b <- pointB
                                                 Just mark -> do 
                                                   moveTo pos >> moveToSol >> insertN [mark] >> deleteN 1
                                                   e <- pointB
-                                                  addOverlayB $ mkOverlay UserLayer (mkRegion (e - 1) e) (styleOfMark mark)
+                                                  addOverlayB $ mkOverlay UserLayer (mkRegion (e -~ 1) e) (styleOfMark mark)
                                                 Nothing -> do 
                                                   -- for deleted marks
                                                   moveTo pos >> moveToSol >> insertN [' '] >> deleteN 1

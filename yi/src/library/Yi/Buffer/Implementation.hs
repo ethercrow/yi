@@ -108,7 +108,7 @@ dummyHlState = (HLState noHighlighter (hlStartState noHighlighter))
 -- TODO: ideally I'd like to get rid of overlays entirely; although we could imagine them storing mere styles.
 instance Binary (BufferImpl ()) where
     put b = put (mem b) >> put (marks b) >> put (markNames b)
-    get = pure FBufferData <*> get <*> get <*> get <*> pure dummyHlState <*> pure Set.empty <*> pure 0
+    get = pure FBufferData <*> get <*> get <*> get <*> pure dummyHlState <*> pure Set.empty <*> pure (Point 0)
     
     
 
@@ -150,7 +150,7 @@ $(derive makeBinary ''UIUpdate)
 
 -- | New FBuffer filled from string.
 newBI :: Rope -> BufferImpl ()
-newBI s = FBufferData s M.empty M.empty dummyHlState Set.empty 0
+newBI s = FBufferData s M.empty M.empty dummyHlState Set.empty (Point 0)
 
 -- | read @n@ bytes from buffer @b@, starting at @i@
 readChunk :: Rope -> Size -> Point -> Rope
@@ -306,7 +306,7 @@ solPoint' point fb = solPoint (lineAt point fb) fb
 
 
 charsFromSolBI :: Point -> BufferImpl syntax -> String
-charsFromSolBI pnt fb = nelemsBI (fromIntegral $ pnt - sol) sol fb
+charsFromSolBI pnt fb = nelemsBI (fromSize $ pnt ~- sol) sol fb
     where sol = solPoint' pnt fb
 
 -- | Return indices of all strings in buffer matching regex, inside the given region.
@@ -347,7 +347,7 @@ modifyMarkBI m f fb = fb {marks = mapAdjust' f m (marks fb)}
 -- (often a whole buffer)
 
 setSyntaxBI :: ExtHL syntax -> BufferImpl oldSyntax -> BufferImpl syntax
-setSyntaxBI (ExtHL e) fb = touchSyntax 0 $ fb {hlCache = HLState e (hlStartState e)}
+setSyntaxBI (ExtHL e) fb = touchSyntax (Point 0) $ fb {hlCache = HLState e (hlStartState e)}
 
 touchSyntax ::  Point -> BufferImpl syntax -> BufferImpl syntax
 touchSyntax touchedIndex fb = fb { dirtyOffset = min touchedIndex (dirtyOffset fb)}
@@ -359,7 +359,7 @@ updateSyntax fb@FBufferData {dirtyOffset = touchedIndex, hlCache = HLState hl ca
     = fb {dirtyOffset = maxBound,
           hlCache = HLState hl (hlRun hl getText touchedIndex cache)
          }
-    where getText = Scanner 0 id (error "getText: no character beyond eof")
+    where getText = Scanner (Point 0) id (error "getText: no character beyond eof")
                      (\idx -> getIndexedStream Forward idx fb)
                                         
 ------------------------------------------------------------------------

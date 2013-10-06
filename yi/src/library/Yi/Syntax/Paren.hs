@@ -136,7 +136,7 @@ getStrokes point _begin _end t0 = -- trace (show t0)
               -- left paren wasn't matched: paint it in red.
               -- note that testing this on the "Paren" node actually forces the parsing of the
               -- right paren, undermining online behaviour.
-              | (posnOfs $ tokPosn $ l) == point || (posnOfs $ tokPosn $ r) == point - 1
+              | (posnOfs $ tokPosn $ l) == point || (posnOfs $ tokPosn $ r) == point -~ 1
 
                = one (modStroke hintStyle (ts l)) <> getStrokesL g <> one (modStroke hintStyle (ts r))
               | otherwise  = one (ts l) <> getStrokesL g <> one (ts r)

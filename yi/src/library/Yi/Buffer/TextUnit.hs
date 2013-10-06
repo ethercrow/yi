@@ -172,8 +172,8 @@ unitSepThisLine = GenUnit Line atSepBoundary
 
 -- | Is the point at a @Unit@ boundary in the specified @Direction@?
 atBoundary :: TextUnit -> Direction -> BufferM Bool
-atBoundary Document Backward = (== 0) <$> pointB
-atBoundary Document Forward  = (>=)   <$> pointB <*> sizeB
+atBoundary Document Backward = (== (Point 0)) <$> pointB
+atBoundary Document Forward  = (>=) <$> (fromPoint <$> pointB) <*> (fromPoint <$> lastB)
 atBoundary Character _ = return True
 atBoundary VLine _ = return True -- a fallacy; this needs a little refactoring.
 atBoundary Line direction = checkPeekB 0 [isNl] direction
@@ -218,7 +218,7 @@ leftBoundaryUnit u = GenUnit Document $ (\_dir -> atBoundaryB u Backward)
 genAtBoundaryB :: TextUnit -> Direction -> BoundarySide -> BufferM Bool
 genAtBoundaryB u d s = withOffset (off u d s) $ atBoundaryB u d
     where withOffset 0 f = f
-          withOffset ofs f = savingPointB (((ofs +) <$> pointB) >>= moveTo >> f)
+          withOffset ofs f = savingPointB $ ((+~ Size ofs) <$> pointB) >>= moveTo >> f
           off _    Backward  InsideBound = 0
           off _    Backward OutsideBound = 1
           off _    Forward   InsideBound = 1
@@ -276,9 +276,9 @@ data BoundarySide = InsideBound | OutsideBound
 -- Warning: moving To the (OutsideBound, Backward) bound of Document is impossible (offset -1!)
 -- @genMoveB u b d@: move in direction d until encountering boundary b or unit u. See 'genAtBoundaryB' for boundary explanation.
 genMoveB :: TextUnit -> (Direction, BoundarySide) -> Direction -> BufferM ()
-genMoveB Document (Forward,InsideBound) Forward = moveTo =<< subtract 1 <$> sizeB
-genMoveB Document _                     Forward = moveTo =<< sizeB
-genMoveB Document _ Backward = moveTo 0 -- impossible to go outside beginning of doc.
+genMoveB Document (Forward,InsideBound) Forward = moveTo =<< (-~ 1) <$> lastB
+genMoveB Document _                     Forward = moveTo =<< lastB
+genMoveB Document _ Backward = moveTo (Point 0) -- impossible to go outside beginning of doc.
 genMoveB Character _ Forward  = rightB
 genMoveB Character _ Backward = leftB
 genMoveB VLine     _ Forward  = 

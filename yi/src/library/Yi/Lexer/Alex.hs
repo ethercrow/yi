@@ -89,16 +89,16 @@ instance Show Posn where
     show (Posn o l c) = "L" ++ show l ++ " " ++ "C" ++ show c ++ "@" ++ show o
 
 startPosn :: Posn
-startPosn = Posn 0 1 0
+startPosn = Posn (Point 0) 1 0
 
 
 moveStr :: Posn -> IndexedStr -> Posn
 moveStr posn str = foldl' moveCh posn (fmap snd str)
 
 moveCh :: Posn -> Char -> Posn
-moveCh (Posn o l c) '\t' = Posn (o+1) l       (((c+8) `div` 8)*8)
-moveCh (Posn o l _) '\n' = Posn (o+1) (l+1)   0
-moveCh (Posn o l c) _    = Posn (o+1) l       (c+1)
+moveCh (Posn o l c) '\t' = Posn (o +~ 1) l       (((c + 8) `div` 8) * 8)
+moveCh (Posn o l _) '\n' = Posn (o +~ 1) (l + 1) 0
+moveCh (Posn o l c) _    = Posn (o +~ 1) l       (c + 1)
 
 alexGetChar :: AlexInput -> Maybe (Char, AlexInput)
 alexGetChar (_,[]) = Nothing
@@ -140,20 +140,18 @@ type ASI s = (AlexState s, AlexInput)
 --   May be used together with 'mkHighlighter' to produce a 'Highlighter',
 --   or with 'linearSyntaxMode' to produce a 'Mode'.
 lexScanner :: forall lexerState token.
-                                          ((AlexState lexerState, AlexInput)
-                                           -> Maybe (token, (AlexState lexerState, AlexInput))) -- ^ A lexer
-                                          -> lexerState -- ^ Initial user state for the lexer
-                                          -> Scanner Point Char
-                                          -> Scanner (AlexState lexerState) token
-lexScanner l st0 src = Scanner
-                 {
-                  --stStart = posnOfs . stPosn,
-                  scanLooked = lookedOffset,
-                  scanInit = AlexState st0 0 startPosn,
-                  scanRun = \st -> 
+    ((AlexState lexerState, AlexInput)
+    -> Maybe (token, (AlexState lexerState, AlexInput))) -- ^ A lexer
+    -> lexerState -- ^ Initial user state for the lexer
+    -> Scanner Point Char
+    -> Scanner (AlexState lexerState) token
+lexScanner l st0 src = Scanner {
+                    scanLooked = lookedOffset
+                  , scanInit = AlexState st0 (Point 0) startPosn
+                  , scanRun = \st -> 
                      case posnOfs $ stPosn st of
-                         0 -> unfoldLexer l (st, ('\n', scanRun src 0))
-                         ofs -> case scanRun src (ofs - 1) of 
+                         Point 0 -> unfoldLexer l (st, ('\n', scanRun src $ Point 0))
+                         ofs -> case scanRun src (ofs -~ 1) of
                              -- FIXME: if this is a non-ascii char the ofs. will be wrong.
                              -- However, since the only thing that matters (for now) is 'is the previous char a new line', we don't really care.
                              -- (this is to support ^,$ in regexes)

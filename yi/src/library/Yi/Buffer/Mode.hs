@@ -19,7 +19,7 @@ module Yi.Buffer.Mode
   , colOf
   , colMove
   , lineOf
-  , sizeB
+  , lastB
   , pointB
   , solPointB
   , moveTo
@@ -149,7 +149,7 @@ import Data.Accessor.Template
 import Data.Binary
 import Data.DeriveTH
 import qualified Data.Rope as R
-import Data.List (scanl, takeWhile, zip, length)
+import Data.List (length)
 import qualified Data.Map as M
 import Data.Maybe
 import {-# source #-} Yi.Keymap
@@ -463,12 +463,12 @@ defaultModeLine prefix = do
     pos <- pointB
     ln <- curLn
     p <- pointB
-    s <- sizeB
+    s <- lastB
     curChar <-readB
     ro <-getA readOnlyA
     modeNm <- gets (withMode0 modeName)
     unchanged <- gets isUnchangedBuffer
-    let pct = if (pos == 0) || (s == 0)
+    let pct = if (pos == Point 0) || (s == Point 0)
                 then " Top"
                 else if (pos == s)
                   then " Bot"
@@ -496,9 +496,9 @@ padString n c s = replicate k c ++ s
 -- | Given a point, and the file size, gives us a percent string
 getPercent :: Point -> Point -> String
 getPercent a b = padString 3 ' ' (show p) ++ "%"
-    where p = ceiling (aa / bb * 100.0 :: Double) :: Int
-          aa = fromIntegral a :: Double 
-          bb = fromIntegral b :: Double
+    where p = ceiling (aa / bb * 100.0) :: Int
+          aa = fromIntegral (fromPoint a) :: Double 
+          bb = fromIntegral (fromPoint b) :: Double
 
 queryBuffer :: (forall syntax. BufferImpl syntax -> x) -> BufferM x
 queryBuffer f = gets (\(FBuffer _ fb _) -> f fb)
@@ -533,7 +533,7 @@ getMarks w = do
 
 
 getMarkValueB :: Mark -> BufferM MarkValue
-getMarkValueB m = fromMaybe (MarkValue 0 Forward) <$> queryBuffer (getMarkValueBI m)
+getMarkValueB m = fromMaybe (MarkValue (Point 0) Forward) <$> queryBuffer (getMarkValueBI m)
 
 newMarkB :: MarkValue -> BufferM Mark
 newMarkB v = queryAndModify $ newMarkBI v
@@ -663,8 +663,8 @@ epoch :: UTCTime
 epoch = UTCTime (toEnum 0) (toEnum 0)
 
 -- | Point of eof
-sizeB :: BufferM Point
-sizeB = queryBuffer sizeBI
+lastB :: BufferM Point
+lastB = queryBuffer sizeBI
 
 -- | Extract the current point
 pointB :: BufferM Point
@@ -793,8 +793,9 @@ curLn = do
 -- actual line we went to (which may be not be the requested line,
 -- if it was out of range)
 gotoLn :: Int -> BufferM Int
-gotoLn x = do moveTo 0
-              (1 +) <$> gotoLnFrom (x - 1)
+gotoLn x = do
+  moveTo (Point 0)
+  (1 +) <$> gotoLnFrom (x - 1)
 
 ---------------------------------------------------------------------
 
@@ -859,8 +860,8 @@ regexRegionB regex region = queryBuffer $ regexRegionBI regex region
 regexB :: Direction -> SearchExp -> BufferM [Region]
 regexB dir rx = do
   p <- pointB
-  s <- sizeB
-  regexRegionB rx (mkRegion p (case dir of Forward -> s; Backward -> 0))
+  s <- lastB
+  regexRegionB rx (mkRegion p (if dir == Forward then s else Point 0))
 
 ---------------------------------------------------------------------
 
@@ -903,8 +904,8 @@ mayGetMarkB m = queryBuffer (getMarkBI m)
 -- A negative offset moves backwards a positive one forward.
 moveN :: Int -> BufferM ()
 moveN n = do
-    s <- sizeB
-    moveTo =<< min s . max 0 . (+~ Size n) <$> pointB
+    s <- lastB
+    moveTo =<< min s . max (Point 0) . (+~ Size n) <$> pointB
 
 -- | Move point -1
 leftB :: BufferM ()

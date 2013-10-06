@@ -149,8 +149,8 @@ pasteAfter = do
             rightB
             insertRopeWithStyleB (addNewLineIfNecessary rope) LineWise
             when eof $ savingPointB $ do
-                newSize <- sizeB
-                moveTo (newSize - 1)
+                newEnd <- lastB
+                moveTo (newEnd -~ 1)
                 curChar <- readB
                 when (curChar == '\n') $ deleteN 1
         Just (Register style rope) -> withBuffer0 $ do

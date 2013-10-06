@@ -124,11 +124,11 @@ savingPointB f = savingPrefCol $ do
   return res
 
 lineCountB :: BufferM Int
-lineCountB = lineOf =<< sizeB
+lineCountB = lineOf =<< lastB
 
 -- | Return the contents of the buffer as a list
 elemsB :: BufferM String
-elemsB = nelemsB maxBound 0
+elemsB = nelemsB maxBound (Point 0)
 
 -- | Move point up one line
 lineUp :: BufferM ()
