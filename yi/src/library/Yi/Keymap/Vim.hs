@@ -42,7 +42,7 @@ module Yi.Keymap.Vim (keymapSet,
                       ) where
 
 import Prelude (maybe, length, filter, map, drop, break, uncurry, reads)
-import Yi.Prelude
+import Yi.Prelude hiding (op, act)
 
 import qualified Data.Binary
 import Data.Char
@@ -50,7 +50,6 @@ import Data.List (nub, take, words, dropWhile, takeWhile, intersperse, reverse, 
 import Data.Maybe (fromMaybe, isJust)
 import Data.Either (either)
 import Data.Prototype
-import Data.Accessor.Template
 import Numeric (showHex, showOct)
 import Shim.Utils (splitBy, uncurry3)
 import System.IO (readFile)
@@ -163,8 +162,8 @@ instance Data.Binary.Binary MViInsertion where
     get = dummyGet
 instance YiVariable MViInsertion
 
-$(nameDeriveAccessors ''ViInsertion $ Just.(++ "A"))
-$(nameDeriveAccessors ''MViInsertion $ Just.(++ "_A"))
+makeLensesWithSuffix "A" ''ViInsertion
+makeLensesWithSuffix "_A" ''MViInsertion
 
 data VimOpts = VimOpts { tildeop :: Bool
                        , completeCaseSensitive :: Bool
@@ -180,7 +179,7 @@ type VimExCmdMap = [VimExCmd] -- very simple implementation yet
 
 data SearchVariety = Bounded | Unbounded
 
-$(nameDeriveAccessors ''VimOpts $ Just.(++ "A"))
+makeLensesWithSuffix "A" ''VimOpts
 
 -- | The Vim keymap is divided into several parts, roughly corresponding
 -- to the different modes of vi. Each mode is in turn broken up into
@@ -198,13 +197,13 @@ data ModeMap = ModeMap { -- | Top level mode
 
                        }
 
-$(nameDeriveAccessors ''ModeMap $ Just.(++ "A"))
+makeLensesWithSuffix "A" ''ModeMap
 
-lastViCommandA :: Accessor Editor ViCmd
+lastViCommandA :: Lens' Editor ViCmd
 lastViCommandA = dynA
 
-currentViInsertionA :: Accessor FBuffer (Maybe ViInsertion)
-currentViInsertionA = unMVI_A . bufferDynamicValueA
+currentViInsertionA :: Lens' FBuffer (Maybe ViInsertion)
+currentViInsertionA = bufferDynamicValueA . unMVI_A
 
 applyViCmd :: Maybe Int -> ViCmd -> YiM ()
 applyViCmd _  NoOp = return ()
@@ -224,9 +223,9 @@ emptyViIns :: Point -> ViInsertion
 emptyViIns p = ViIns Nothing (return ()) p p (return ())
 
 getViIns :: BufferM ViInsertion
-getViIns = maybe def return =<< getA currentViInsertionA
+getViIns = maybe def return =<< use currentViInsertionA
   where def = do ins <- emptyViIns <$> pointB
-                 putA currentViInsertionA $ Just ins
+                 assign currentViInsertionA $ Just ins
                  return ins
 
 viInsText :: ViInsertion -> BufferM String
@@ -243,7 +242,7 @@ savingInsertB action = do ins0 <- getViIns
                               ins1 | endP == oldP                  = ins0 { viEndPos = newP }
                                    | oldP >= beginP && oldP < endP = ins0 { viEndPos = endP +~ (newP ~- oldP) }
                                    | otherwise                     = emptyViIns newP
-                          putA currentViInsertionA $ Just ins1
+                          assign currentViInsertionA $ Just ins1
 
 savingInsertCharB :: Char -> BufferM ()
 savingInsertCharB = savingInsertB . insertB
@@ -265,18 +264,18 @@ savingDeleteB action = do
   let diff   = s2 ~- s1
       endP   = viEndPos ins0
       beginP = viBeginPos ins0
-      shrinkEndPos = viEndPosA ^: (-~ diff)
+      shrinkEndPos = viEndPosA %~ (-~ diff)
       ins1 =
         if oldP >= beginP && oldP <= endP then
           if newP > endP then
-            viActAfterA  ^: (>> action) $ ins0 { viEndPos = newP }
+            viActAfterA  %~ (>> action) $ ins0 { viEndPos = newP }
           else if newP < beginP then
-            viActBeforeA ^: (>> action) $ shrinkEndPos $ ins0 { viBeginPos = newP }
+            viActBeforeA %~ (>> action) $ shrinkEndPos $ ins0 { viBeginPos = newP }
           else shrinkEndPos ins0
-        else if newP > oldP then viActAfterA  ^: (>> action) $ emptyViIns newP
-                            else viActBeforeA ^: (>> action) $ emptyViIns newP
+        else if newP > oldP then viActAfterA  %~ (>> action) $ emptyViIns newP
+                            else viActBeforeA %~ (>> action) $ emptyViIns newP
 
-  putA currentViInsertionA $ Just ins1
+  assign currentViInsertionA $ Just ins1
 
 savingDeleteCharB :: Direction -> BufferM ()
 savingDeleteCharB dir = savingDeleteB (adjBlock (-1) >> deleteB Character dir)
@@ -294,15 +293,15 @@ viCommandOfViInsertion ins@(ViIns mayFirstAct before _ _ after) = do
       flip replicateM_ $ withBuffer0' $ before >> insertN text >> after
 
 commitLastInsertionE :: EditorM ()
-commitLastInsertionE = do mins <- withBuffer0 $ getA currentViInsertionA
-                          withBuffer0 $ putA currentViInsertionA Nothing
-                          putA lastViCommandA =<< maybe (return NoOp) (withBuffer0 . viCommandOfViInsertion) mins
+commitLastInsertionE = do mins <- withBuffer0 $ use currentViInsertionA
+                          withBuffer0 $ assign currentViInsertionA Nothing
+                          assign lastViCommandA =<< maybe (return NoOp) (withBuffer0 . viCommandOfViInsertion) mins
 
 savingCommandY :: (Int -> YiM ()) -> Int -> YiM ()
-savingCommandY f i = putA lastViCommandA (ArbCmd f i) >> f i
+savingCommandY f i = assign lastViCommandA (ArbCmd f i) >> f i
 
 savingCommandE :: (Int -> EditorM ()) -> Int -> EditorM ()
-savingCommandE f i = putA lastViCommandA (ArbCmd (withEditor . f) i) >> f i
+savingCommandE f i = assign lastViCommandA (ArbCmd (withEditor . f) i) >> f i
 
 savingCommandE'Y :: (Int -> EditorM ()) -> Int -> YiM ()
 savingCommandE'Y f = withEditor' . savingCommandE f
@@ -455,7 +454,7 @@ defKeymap = Proto template
 
      -- | Reset the selection style to a character-wise mode 'Inclusive'.
      resetSelectStyle :: BufferM ()
-     resetSelectStyle = putA regionStyleA Inclusive
+     resetSelectStyle = assign regionStyleA Inclusive
 
      -- | Visual mode, similar to command mode
      vis_move :: VimMode
@@ -467,7 +466,7 @@ defKeymap = Proto template
 
      vis_mode :: RegionStyle -> VimMode
      vis_mode selStyle = do
-       write $ do putA rectangleSelectionA $ Block == selStyle
+       write $ do assign rectangleSelectionA $ Block == selStyle
                   setVisibleSelection True
                   pointB >>= setSelectionMarkPointB
        core_vis_mode selStyle
@@ -475,7 +474,7 @@ defKeymap = Proto template
 
      core_vis_mode :: RegionStyle -> VimMode
      core_vis_mode selStyle = do
-       write $ do withBuffer0' $ putA regionStyleA selStyle
+       write $ do withBuffer0' $ assign regionStyleA selStyle
                   setStatus ([msg selStyle], defaultStyle)
        discard $ many (vis_move <|>
              select_any_unit (withBuffer0' . (\r -> resetSelectStyle >> extendSelectRegionB r >> leftB)))
@@ -660,7 +659,7 @@ defKeymap = Proto template
           [char 'r' ?>> do c <- textChar
                            write $ savingCommandB (savingPointB . writeN . flip replicate c) i
           ,char 'm' ?>> setMark
-          ,char '.' ?>>! applyViCmd cnt =<< withEditor (getA lastViCommandA)]
+          ,char '.' ?>>! applyViCmd cnt =<< withEditor (use lastViCommandA)]
 
      searchCurrentWord :: SearchVariety -> Direction -> EditorM ()
      searchCurrentWord bounded dir = do
@@ -686,7 +685,7 @@ defKeymap = Proto template
      continueSearching :: (Direction -> Direction) -> EditorM ()
      continueSearching fdir = do
        m <- getRegexE
-       dir <- fdir <$> getA searchDirectionA 
+       dir <- fdir <$> use searchDirectionA 
        printMsg $ directionElim dir '?' '/' : maybe "" seInput m
        viSearch "" [] dir
 
@@ -901,7 +900,7 @@ defKeymap = Proto template
      regionOfSelection :: BufferM (RegionStyle, Region)
      regionOfSelection = do
        setMarkHere '>'
-       regionStyle <- getA regionStyleA
+       regionStyle <- use regionStyleA
        region <- join $ mkRegionOfStyleB <$> getSelectionMarkPointB
                                          <*> pointB
                                          <*> pure regionStyle
@@ -955,7 +954,7 @@ defKeymap = Proto template
      pasteOverSelection = do
        txt <- getRegE
        withBuffer0' $ do
-         regStyle <- getA regionStyleA
+         regStyle <- use regionStyleA
          start    <- getSelectionMarkPointB
          stop     <- pointB
          region   <- mkRegionOfStyleB start stop regStyle
@@ -1321,7 +1320,7 @@ exEval self cmd =
        -}
       safeQuitWindow = do
           nw <- withBuffer' needsAWindowB
-          ws <- withEditor $ getA currentWindowA >>= windowsOnBufferE . bufkey
+          ws <- withEditor $ use currentWindowA >>= windowsOnBufferE . bufkey
           if 1 == length ws && nw
             then errorEditor "No write since last change (add ! to override)"
             else closeWindow
@@ -1611,9 +1610,11 @@ beginInsB self = beginInsE self . withBuffer0
 
 beginInsE :: ModeMap -> EditorM () -> I Event Action ()
 beginInsE self a = do
-  write $ do a
-             withBuffer0 $ do p <- pointB
-                              putA currentViInsertionA $ Just $ viActFirstA ^= Just a $ emptyViIns p
+  write $ do
+    a
+    withBuffer0 $ do
+      p <- pointB
+      assign currentViInsertionA $ Just $ viActFirstA .~ Just a $ emptyViIns p
   ins_mode self
 
 withBuffer0' :: BufferM a -> EditorM a

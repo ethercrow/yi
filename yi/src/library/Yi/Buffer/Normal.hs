@@ -73,7 +73,7 @@ instance Initializable RegionStyle where
 
 instance YiVariable RegionStyle
 
-regionStyleA :: Accessor FBuffer RegionStyle
+regionStyleA :: Lens' FBuffer RegionStyle
 regionStyleA = bufferDynamicValueA
 
 convertRegionToStyleB :: Region -> RegionStyle -> BufferM Region

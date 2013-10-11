@@ -50,12 +50,15 @@ module Yi.Search (
                  ) where
 
 import Prelude ()
-import Yi.Regex
-import Yi.Window
+import Yi.Prelude hiding (re, from, to)
+
 import Data.Char
 import Data.Maybe
 import Data.Either
 import Data.List (span, takeWhile, take, length)
+
+import Yi.Regex
+import Yi.Window
 import Yi.Core
 import Yi.History
 
@@ -69,15 +72,15 @@ import Yi.History
 
 -- | Put regex into regex 'register'
 setRegexE :: SearchExp -> EditorM ()
-setRegexE re = putA currentRegexA (Just re)
+setRegexE re = assign currentRegexA (Just re)
 
 -- | Clear the regex 'register'
 resetRegexE :: EditorM ()
-resetRegexE = putA currentRegexA Nothing
+resetRegexE = assign currentRegexA Nothing
 
 -- | Return contents of regex register
 getRegexE :: EditorM (Maybe SearchExp)
-getRegexE = getA currentRegexA
+getRegexE = use currentRegexA
 
 
 -- ---------------------------------------------------------------------
@@ -115,7 +118,7 @@ searchInit :: String -> Direction -> [SearchOption] -> EditorM (SearchExp, Direc
 searchInit re d fs = do
     let Right c_re = makeSearchOptsM fs re
     setRegexE c_re
-    putA searchDirectionA d
+    assign searchDirectionA d
     return (c_re,d)
 
 -- | Do a search, placing cursor at first char of pattern, if found.
@@ -183,7 +186,7 @@ searchAndRepRegion [] _ _ _ = return False   -- hmm...
 searchAndRepRegion s str globally region = do
     let c_re = makeSimpleSearch s
     setRegexE c_re     -- store away for later use
-    putA searchDirectionA Forward
+    assign searchDirectionA Forward
     withBuffer0 $ (/= 0) <$> searchAndRepRegion0 c_re str globally region
 
 ------------------------------------------------------------------------
@@ -349,7 +352,7 @@ isearchEnd accept = do
   let (lastSearched,_,dir) = head s
   let (_,p0,_) = last s
   historyFinishGen iSearch (return lastSearched)
-  putA searchDirectionA dir
+  assign searchDirectionA dir
   if accept 
      then do withBuffer0 $ setSelectionMarkPointB $ regionStart p0 
              printMsg "Quit"
@@ -383,7 +386,7 @@ qrReplaceAll win b what replacement = do
 -- |  Exit from query/replace.
 qrFinish :: EditorM ()
 qrFinish = do
-  putA currentRegexA Nothing
+  assign currentRegexA Nothing
   closeBufferAndWindowE  -- the minibuffer.
   
 {-

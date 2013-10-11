@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Yi.Prelude 
     (
@@ -36,9 +37,7 @@ commonPrefix,
 discard,
 dummyPut,
 dummyGet,
-every,
 findPL,
-focusA,
 fromIntegral,
 fst,
 fst3,
@@ -53,9 +52,8 @@ mapAdjust',
 mapAlter',
 mapFromFoldable,
 module Control.Applicative,
-module Control.Category,
-module Data.Accessor, 
-module Data.Accessor.Monad.MTL.State, putA, getA, modA, 
+module Control.Lens,
+makeLensesWithSuffix,
 module Data.Bool,
 module Data.Foldable,
 module Data.Function,
@@ -91,12 +89,16 @@ import Text.Show
 import Data.Bool
 import Data.Binary
 import Data.Foldable
-import Data.Function hiding ((.), id)
+import Data.Function
 import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable(Hashable)
 import Data.Int
 import Data.Rope (Rope)
-import Control.Category
+import Control.Lens hiding (
+      (-~), (+~) -- already used by SemiNum
+    , moveTo     -- collision with Buffer.Misc.moveTo
+    , Action     --           with Yi.Keymap
+    )
 import Control.Monad.Reader
 import Control.Applicative hiding((<$))
 import Data.Traversable 
@@ -104,11 +106,6 @@ import Data.Typeable
 import Data.Monoid (Monoid, mappend)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import qualified Control.Monad.State.Class as CMSC
-import qualified Data.Accessor.Basic as Accessor
-import Data.Accessor ((<.), accessor, getVal, setVal, Accessor,(^.),(^:),(^=))
-import qualified Data.Accessor.Monad.MTL.State as Accessor.MTL
-import Data.Accessor.Monad.MTL.State ((%:), (%=))
 import qualified Data.List.PointedList as PL
     
 type Endom a = a -> a
@@ -142,8 +139,8 @@ discard = fmap (const ())
 
 -- 'list' is the canonical list destructor as 'either' or 'maybe'.
 list :: b -> (a -> [a] -> b) -> [a] -> b
-list nil _    []     = nil
-list _   cons (x:xs) = cons x xs
+list nil _     []     = nil
+list _   cons' (x:xs) = cons' x xs
 
 -- TODO: move somewhere else.
 -- | As 'Prelude.nub', but with O(n*log(n)) behaviour.
@@ -196,21 +193,6 @@ chain q (e1 : es@(e2 : _))
     | q e1 e2 = let (s1, s2) = chain q es in (e1 : s1, s2)
     | otherwise = ([e1], es)
 
-----------------------
--- Accessors support
-
--- | Lift an accessor to a traversable structure. (This can be seen as a
--- generalization of fmap)
-every :: Traversable t => Accessor whole part -> Accessor (t whole) (t part)
-every a = accessor (fmap (getVal a)) (\parts wholes -> zipWithT (setVal a) parts wholes)
-
--- | zipWith, generalized to Traversable structures.
-zipWithT :: Traversable t => (a -> b -> c) -> t a -> t b -> t c
-zipWithT f ta tb = result
-  where step []     _ = Yi.Debug.error "zipT: non matching structures!"
-        step (b:bs) a = (bs,f a b)
-        ([], result) = mapAccumL step (toList tb) ta
-
 -- | Return the longest common prefix of a set of lists.
 --
 -- > P(xs) === all (isPrefixOf (commonPrefix xs)) xs
@@ -234,25 +216,13 @@ findPL p xs = go [] xs where
   go ls (f:rs) | p f    = Just (PL.PointedList ls f rs)
                | otherwise = go (f:ls) rs
 
-focusA :: Accessor (PL.PointedList a) a
-focusA = accessor getter setter where
-  getter   (PL.PointedList _ x _) = x
-  setter y (PL.PointedList x _ z) = PL.PointedList x y z
-
 -- | Given a function which moves the focus from index A to index B, return a function which swaps the elements at indexes A and B and then moves the focus. See Yi.Editor.swapWinWithFirstE for an example.
 swapFocus :: (PL.PointedList a -> PL.PointedList a) -> (PL.PointedList a -> PL.PointedList a)
-swapFocus moveFocus xs = focusA ^= (xs ^. focusA) $ moveFocus $ focusA ^= (moveFocus xs ^. focusA) $ xs
-----------------------
--- Acessor stuff
-
-putA :: CMSC.MonadState r m => Accessor.T r a -> a -> m ()
-putA = Accessor.MTL.set
-
-getA :: CMSC.MonadState r m => Accessor.T r a -> m a
-getA = Accessor.MTL.get
-
-modA :: CMSC.MonadState r m => Accessor.T r a -> (a -> a) -> m ()
-modA = Accessor.MTL.modify
+swapFocus moveFocus xs =
+    let xs' = moveFocus xs
+        f1  = view PL.focus xs
+        f2  = view PL.focus xs'
+    in set PL.focus f1 . moveFocus . set PL.focus f2 $ xs
 
 -------------------- Initializable typeclass
 -- | The default value. If a function tries to get a copy of the state, but the state
@@ -278,3 +248,5 @@ instance (Eq k, Hashable k, Binary k, Binary v) => Binary (HashMap.HashMap k v) 
     put x = put (HashMap.toList x)
     get = HashMap.fromList <$> get
 
+makeLensesWithSuffix s =
+  makeLensesWith (defaultRules & lensField .~ Just . (++s)) 

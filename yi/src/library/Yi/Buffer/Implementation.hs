@@ -45,24 +45,25 @@ module Yi.Buffer.Implementation
 )
 where
 
-import Control.Monad
+import Prelude (dropWhile, map, filter)
+import Yi.Prelude hiding (from, re)
+
 import Data.Array
 import Data.Binary
 import Data.DeriveTH
 import Data.List (groupBy, zip, takeWhile)
+import qualified Data.Map as M
 import Data.Maybe 
 import Data.Monoid
-import Data.Typeable
-import Prelude (dropWhile, map, filter)
+import qualified Data.Rope as F
+import qualified Data.Set as Set
+import Data.Typeable ()
+
 import Yi.Buffer.Basic
-import Yi.Prelude
 import Yi.Regex
 import Yi.Region
 import Yi.Style
 import Yi.Syntax 
-import qualified Data.Rope as F
-import qualified Data.Map as M
-import qualified Data.Set as Set
 
 data MarkValue = MarkValue {markPoint :: !Point, markGravity :: !Direction}
                deriving (Ord, Eq, Show, Typeable)
