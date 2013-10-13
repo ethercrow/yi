@@ -109,7 +109,7 @@ updateMatchList bufRef fileList = do
     let filteredFiles = filter (subsequenceMatch needle) fileList
     withEditor $ withGivenBuffer0 bufRef $ do
         replaceBufferContent $ showFileList filteredFiles
-        moveTo 0
+        moveTo (Point 0)
         replaceCharB '*'
     return ()
 
