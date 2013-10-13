@@ -106,10 +106,7 @@ maybeCharWithVerticalOffset offset = savingPointB $ do
     else return Nothing
 
 replaceCharB :: Char -> BufferM ()
-replaceCharB c = do
-    deleteN 1
-    insertB c
-    leftB
+replaceCharB = savingPointB . writeB
 
 -- | Delete @n@ characters forward from the current point
 deleteN :: Int -> BufferM ()
