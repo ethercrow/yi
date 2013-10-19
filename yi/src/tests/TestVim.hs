@@ -3,15 +3,14 @@
 module TestVim (getTests) where
 
 import Test.HUnit
-import Test.Framework.Providers.HUnit
-import qualified Test.Framework as TF
+import Test.Tasty.HUnit
+import Test.Tasty (TestTree, testGroup)
 
 import Control.Monad (filterM, forM, void, unless)
 
 import Data.List (sort, isSuffixOf, intercalate)
 
 import System.Directory
-import System.Environment
 import System.FilePath
 
 import Text.Printf
@@ -108,7 +107,7 @@ discoverTests topdir = do
     testsFromFiles <- mapM loadTestFromFile testFiles
     return $ testsFromDirs ++ testsFromFiles
 
-mkTestCase :: VimTest -> TF.Test
+-- mkTestCase :: VimTest -> Tasty.Test
 mkTestCase t = testCase (vtName t) $ assertEqual errorMsg actualOut (vtOutput t)
     where outputMatches = vtOutput t == actualOut
           actualOut = extractBufferString . fst $
@@ -140,10 +139,10 @@ initialEditor input = fst $ runEditor' action emptyEditor
 runEditor' :: EditorM a -> Editor -> (Editor, a)
 runEditor' = runEditor defaultVimConfig
 
-getTests :: IO [TF.Test]
+getTests :: IO TestTree
 getTests = do
     vimtests <- discoverTests "src/tests/vimtests"
-    return $! fmap mkTestCase . sort $ vimtests
+    return $ testGroup "Vim" $ fmap mkTestCase . sort $ vimtests
 
 readFile' :: FilePath -> IO String
 readFile' f = do
