@@ -1,12 +1,12 @@
 module Main where
 
-import Test.Framework (defaultMain)
-
-import Test.Framework.Providers.HUnit
+import Test.Tasty (defaultMain, testGroup)
 
 import qualified TestVim
+import qualified TestRope
 
 main :: IO ()
 main = do
     tests <- TestVim.getTests
-    defaultMain tests
+    let ropeTests = TestRope.tests
+    defaultMain $ testGroup "Tests" [ropeTests, tests]
