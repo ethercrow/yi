@@ -34,7 +34,7 @@ enterBinding = VimBindingE prereq action
 
               count <- getCountE
               Just regex <- getRegexE
-              withBuffer0 $ if count == 1 && dir == Forward
+              withBuffer0 $ if count == 1
                             then do
                                 -- Workaround for isearchFinishE leaving cursor after match
                                 continueVimSearch (regex, Backward)

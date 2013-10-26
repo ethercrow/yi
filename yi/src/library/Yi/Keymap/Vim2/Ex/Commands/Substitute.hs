@@ -11,6 +11,7 @@ import Yi.Buffer hiding (Delete)
 import Yi.Keymap
 import Yi.Keymap.Vim2.Ex.Types
 import qualified Yi.Keymap.Vim2.Ex.Commands.Common as Common
+import Yi.Regex
 import Yi.Search
 
 parse :: String -> Maybe ExCommand
@@ -36,10 +37,13 @@ substitute from to global caseInsensitive allLines = Common.pureExCommand {
         , if global then "g" else ""
         ]
   , cmdAction = BufferA $ do
-        let regex = makeSimpleSearch from
-            replace = do
-                region <- regionOfB Line
-                discard $ searchAndRepRegion0 regex to global region
+        let opts = [IgnoreCase | caseInsensitive]
+            regex = makeSearchExp opts from
+            replace = case regex of
+                Right se -> do
+                    region <- regionOfB Line
+                    discard $ searchAndRepRegion0 se to global region
+                Left _ -> return ()
 
         if allLines
         then withEveryLineB replace

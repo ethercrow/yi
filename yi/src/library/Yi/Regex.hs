@@ -1,39 +1,41 @@
 {-# LANGUAGE FlexibleContexts, TemplateHaskell, RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- uniplate uses incomplete patterns
 -- Copyright (c) Jean-Philippe Bernardy 2008
-module Yi.Regex 
-  (
-   SearchOption(..), makeSearchOptsM,
-   SearchExp(..), searchString, searchRegex, emptySearch,
-   emptyRegex,
-   regexEscapeString,
-   module Text.Regex.TDFA,
-   )
-where
+
+module Yi.Regex (
+    SearchOption(..)
+  , makeSearchExp
+  , SearchExp(..)
+  , searchString
+  , emptySearch
+  , emptyRegex
+  , regexEscapeString
+  , module Text.Regex.TDFA
+  ) where
+
+import Control.Applicative
 
 import Data.Binary
 import Data.DeriveTH
 import Data.Generics.Uniplate
+
 import Text.Regex.TDFA
-import Text.Regex.TDFA.Pattern
-import Control.Applicative
-import Text.Regex.TDFA.ReadRegex(parseRegex)
-import Text.Regex.TDFA.TDFA(patternToRegex)
-import Yi.Buffer.Basic (Direction(..))
+import Text.Regex.TDFA.Pattern (Pattern(..), showPattern, DoPa(..))
+import Text.Regex.TDFA.ReadRegex (parseRegex)
+import Text.Regex.TDFA.TDFA (patternToRegex)
 
 -- input string, regexexp, backward regex.
-data SearchExp = SearchExp { seInput        :: String
-                           , seCompiled     :: Regex
-                           , seBackCompiled :: Regex
-                           , seOptions      :: [SearchOption]
-                           }
+data SearchExp = SearchExp {
+    seInput        :: String
+  , seCompiled     :: Regex
+  , seOptions      :: [SearchOption]
+  }
+
+instance Show SearchExp where
+    show (SearchExp input _ opts) = "SearchExp \"" ++ input ++ "\" / " ++ show opts
 
 searchString :: SearchExp -> String
 searchString = seInput
-
-searchRegex :: Direction -> SearchExp -> Regex
-searchRegex Forward = seCompiled
-searchRegex Backward = seBackCompiled
 
 --
 -- What would be interesting would be to implement our own general
@@ -46,7 +48,7 @@ data SearchOption
     = IgnoreCase   -- ^ Compile for matching that ignores char case
     | NoNewLine    -- ^ Compile for newline-insensitive matching
     | QuoteRegex   -- ^ Treat the input not as a regex but as a literal string to search for.
-    deriving Eq
+    deriving (Show, Eq)
 
 $(derive makeBinary ''SearchOption)
 
@@ -55,12 +57,12 @@ searchOpt IgnoreCase = \o->o{caseSensitive = False}
 searchOpt NoNewLine = \o->o{multiline = False}
 searchOpt QuoteRegex = id
 
-makeSearchOptsM :: [SearchOption] -> String -> Either String SearchExp
-makeSearchOptsM opts re = (\p->SearchExp { seInput        = re
-                                         , seCompiled     = compile p
-                                         , seBackCompiled = compile $ reversePattern p
-                                         , seOptions      = opts
-                                         }) <$> pattern
+makeSearchExp :: [SearchOption] -> String -> Either String SearchExp
+makeSearchExp opts re =
+    (\p -> SearchExp { seInput = re
+                               , seCompiled     = compile p
+                               , seOptions      = opts
+                               }) <$> pattern
     where searchOpts = foldr (.) id . map searchOpt
           compile source = patternToRegex source (searchOpts opts defaultCompOpt) defaultExecOpt
           pattern = if QuoteRegex `elem` opts 
@@ -70,7 +72,7 @@ makeSearchOptsM opts re = (\p->SearchExp { seInput        = re
 instance Binary SearchExp where
   get = do re   <- get
            opts <- get
-           return $ case makeSearchOptsM opts re of
+           return $ case makeSearchExp opts re of
                       Left err -> error err
                       Right se -> se
   put (SearchExp { seInput   = re,
@@ -140,7 +142,7 @@ instance Uniplate Pattern where
           p ->([],\[]->p)
 
 emptySearch :: SearchExp
-emptySearch = SearchExp "" emptyRegex emptyRegex []
+emptySearch = SearchExp "" emptyRegex []
 
 
 -- | The regular expression that matches nothing.

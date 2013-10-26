@@ -172,7 +172,7 @@ import Control.Monad.RWS.Strict hiding (mapM_, mapM, get, put, forM_, forM)
 import Data.Binary
 import Data.DeriveTH
 import qualified Data.Rope as R
-import Data.List (scanl, takeWhile, zip, length)
+import Data.List (scanl, takeWhile, zip, length, reverse)
 import qualified Data.Map as M
 import Data.Maybe
 import {-# source #-} Yi.Keymap
@@ -915,7 +915,10 @@ regexB :: Direction -> SearchExp -> BufferM [Region]
 regexB dir rx = do
   p <- pointB
   s <- sizeB
-  regexRegionB rx (mkRegion p (case dir of Forward -> s; Backward -> 0))
+  let reg = mkRegion p (case dir of Forward -> s; Backward -> 0)
+  matches <- regexRegionB rx reg
+  return $ (if dir == Forward then id else reverse) matches
+
 
 ---------------------------------------------------------------------
 

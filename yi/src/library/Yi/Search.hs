@@ -20,7 +20,7 @@ module Yi.Search (
                             -- -> IO SearchExp
         continueSearch,          -- :: SearchExp
                             -- -> IO SearchResult
-        makeSimpleSearch,
+        makeLiteralSearchExp,
 
         -- * Batch search-replace
         searchReplaceRegionB,
@@ -116,7 +116,7 @@ doSearch Nothing   _  d = do
 -- | Set up a search.
 searchInit :: String -> Direction -> [SearchOption] -> EditorM (SearchExp, Direction)
 searchInit re d fs = do
-    let Right c_re = makeSearchOptsM fs re
+    let Right c_re = makeSearchExp fs re
     setRegexE c_re
     assign searchDirectionA d
     return (c_re,d)
@@ -153,7 +153,7 @@ searchReplaceRegionB ::
                     -> String -- ^ The String to replace it with
                     -> Region -- ^ The region to perform this over
                     -> BufferM Int
-searchReplaceRegionB from to = searchAndRepRegion0 (makeSimpleSearch from) to True
+searchReplaceRegionB from to = searchAndRepRegion0 (makeLiteralSearchExp from) to True
 
 
 -- | Peform a search and replace on the selection
@@ -184,7 +184,7 @@ searchAndRepRegion0 c_re str globally region = do
 searchAndRepRegion :: String -> String -> Bool -> Region -> EditorM Bool
 searchAndRepRegion [] _ _ _ = return False   -- hmm...
 searchAndRepRegion s str globally region = do
-    let c_re = makeSimpleSearch s
+    let c_re = makeLiteralSearchExp s
     setRegexE c_re     -- store away for later use
     assign searchDirectionA Forward
     withBuffer0 $ (/= 0) <$> searchAndRepRegion0 c_re str globally region
@@ -229,13 +229,13 @@ isearchAddE :: String -> EditorM ()
 isearchAddE increment = isearchFunE (++ increment)
 
 -- | Create a SearchExp that matches exactly its argument
-makeSimpleSearch :: String -> SearchExp
-makeSimpleSearch s = se
-    where Right se = makeSearchOptsM [QuoteRegex] s
+makeLiteralSearchExp :: String -> SearchExp
+makeLiteralSearchExp s = se
+    where Right se = makeSearchExp [QuoteRegex] s
 
 makeISearch :: String -> SearchExp
-makeISearch s = case makeSearchOptsM opts s of
-                  Left _ -> SearchExp s emptyRegex emptyRegex []
+makeISearch s = case makeSearchExp opts s of
+                  Left _ -> SearchExp s emptyRegex []
                   Right search -> search
    where opts = QuoteRegex : if any isUpper s then [] else [IgnoreCase]
 
@@ -272,7 +272,7 @@ isearchFunE fun = do
                [] -> do withBuffer0 $ moveTo prevPoint -- go back to where we were
                         setDynamic $ Isearch ((current,p0,direction):s)
                         printMsg $ "Failing I-search: " ++ current
-                 
+
 isearchDelE :: EditorM ()
 isearchDelE = do
   Isearch s <- getDynamic
@@ -354,7 +354,7 @@ isearchEnd accept = do
   historyFinishGen iSearch (return lastSearched)
   assign searchDirectionA dir
   if accept 
-     then do withBuffer0 $ setSelectionMarkPointB $ regionStart p0 
+     then do withBuffer0 $ setSelectionMarkPointB $ regionStart p0
              printMsg "Quit"
      else do resetRegexE
              withBuffer0 $ moveTo $ regionStart p0

@@ -33,7 +33,7 @@ import Prelude ()
 -- Invariant : regionStart r <= regionEnd r
 data Region = Region {regionDirection :: !Direction,
                       regionStart, regionEnd :: !Point} 
-                 deriving (Typeable)
+                 deriving (Typeable, Eq)
 
 $(derive makeBinary ''Region)
 

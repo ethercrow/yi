@@ -27,8 +27,8 @@ import Yi.Keymap.Vim2.StyledRegion
 import Yi.Keymap.Vim2.Utils
 import Yi.MiniBuffer
 import Yi.Misc
-import Yi.Regex (seInput, makeSearchOptsM)
-import Yi.Search (getRegexE, isearchInitE, setRegexE, makeSimpleSearch)
+import Yi.Regex (seInput, makeSearchExp)
+import Yi.Search (getRegexE, isearchInitE, setRegexE, makeLiteralSearchExp)
 
 mkDigitBinding :: Char -> VimBinding
 mkDigitBinding c = mkBindingE Normal Continue (char c, return (), mutate)
@@ -285,10 +285,10 @@ searchWordE wholeWord dir = do
             withCount $ continueSearching (const dir)
 
     if wholeWord
-    then case makeSearchOptsM [] $ "\\<" ++ word ++ "\\>" of
+    then case makeSearchExp [] $ "\\<" ++ word ++ "\\>" of
             Right re -> search re
             Left _ -> return ()
-    else search $ makeSimpleSearch word
+    else search $ makeLiteralSearchExp word
 
 
 searchBinding :: VimBinding

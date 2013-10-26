@@ -312,16 +312,12 @@ charsFromSolBI pnt fb = nelemsBI (fromIntegral $ pnt - sol) sol fb
 
 -- | Return indices of all strings in buffer matching regex, inside the given region.
 regexRegionBI :: SearchExp -> Region -> forall syntax. BufferImpl syntax -> [Region]
-regexRegionBI se r fb = case dir of
-     Forward  -> fmap (fmapRegion addPoint . matchedRegion) $ matchAll' $ F.toString        bufReg
-     Backward -> fmap (fmapRegion subPoint . matchedRegion) $ matchAll' $ F.toReverseString bufReg
-    where matchedRegion arr = let (off,len) = arr!0 in mkRegion (Point off) (Point (off+len))
+regexRegionBI se r fb = fmap (fmapRegion addPoint . matchedRegion) matches
+    where matches = matchAll (seCompiled se) (F.toString bufReg :: String)
+          matchedRegion arr = let (off,len) = arr ! 0
+                              in mkRegion (Point off) (Point (off+len))
           addPoint (Point x) = Point (p + x)
-          subPoint (Point x) = Point (q - x) 
-          matchAll' = matchAll (searchRegex dir se)
-          dir = regionDirection r
           Point p = regionStart r
-          Point q = regionEnd r
           Size s = regionSize r
           bufReg = F.take s $ F.drop p $ mem fb
 

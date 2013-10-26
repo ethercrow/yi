@@ -189,7 +189,7 @@ queryReplaceE = do
                             oneOf [char 'y', char ' '] >>! qrReplaceOne win b re replaceWith,
                             oneOf [char 'q', ctrl (char 'g')] >>! qrFinish
                            ]
-        Right re = makeSearchOptsM [] replaceWhat
+        Right re = makeSearchExp [] replaceWhat
     withEditor $ do
        setRegexE re
        discard $ spawnMinibufferE
