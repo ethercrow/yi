@@ -10,7 +10,12 @@ module Yi.Regex (
   , emptySearch
   , emptyRegex
   , regexEscapeString
-  , module Text.Regex.TDFA
+
+  -- reexports from Text.Regex.TDFA
+  , Regex
+  , matchAll
+  , matchOnceText
+  , makeRegex
   ) where
 
 import Control.Applicative

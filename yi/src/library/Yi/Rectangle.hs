@@ -10,7 +10,7 @@ import Data.List (sort, length, zipWith, transpose)
 import Yi.Buffer
 import Yi.Editor
 import Yi.String
-import Text.Regex.TDFA
+import Text.Regex.TDFA ((=~), AllTextSubmatches(..))
 
 alignRegion :: String -> BufferM ()
 alignRegion str = modifyRegionClever (alignText str) =<< unitWiseRegion Line =<< getSelectRegionB
