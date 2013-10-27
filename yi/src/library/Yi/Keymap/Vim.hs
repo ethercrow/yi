@@ -73,7 +73,7 @@ import Yi.History
 import Yi.String (dropSpace)
 import Yi.MiniBuffer
 import Yi.Misc
-import Yi.Regex (seInput, regexEscapeString)
+import Yi.Regex (searchString, regexEscapeString)
 import Yi.Search
 import Yi.Style
 import Yi.TextCompletion
@@ -686,7 +686,7 @@ defKeymap = Proto template
      continueSearching fdir = do
        m <- getRegexE
        dir <- fdir <$> use searchDirectionA 
-       printMsg $ directionElim dir '?' '/' : maybe "" seInput m
+       printMsg $ directionElim dir '?' '/' : maybe "" searchString m
        viSearch "" [] dir
 
      onCurrentWord :: (String -> String) -> BufferM ()

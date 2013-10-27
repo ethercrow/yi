@@ -29,8 +29,7 @@ import qualified Data.Rope as R
 import Yi.Config
 import Yi.Core
 import Yi.Dired
-import Yi.Regex
-import Text.Regex.TDFA ((=~), AllTextSubmatches(..))
+import Yi.Regex ((=~), AllTextSubmatches(..))
 
 -- | If file exists, read contents of file into a new buffer, otherwise
 -- creating a new empty buffer. Replace the current window with a new

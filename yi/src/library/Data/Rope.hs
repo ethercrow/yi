@@ -45,13 +45,11 @@ module Data.Rope (
 import Prelude hiding (null, head, tail, length, take, drop, splitAt, head, tail, foldl, reverse, readFile, writeFile, concat)
 
 import Data.Binary
-import Data.Char (ord)
 import qualified Data.FingerTree as FT
 import Data.FingerTree hiding (singleton, null, empty, reverse, split)
 import Data.Function (on)
 import qualified Data.List as L
 import Data.Monoid
-import Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LTIO
@@ -206,7 +204,7 @@ splitAtLine n | n <= 0     = \r -> (empty, r)
 splitAtLine' :: Int -> Rope -> (Rope, Rope)
 splitAtLine' n (Rope t) =
    case FT.viewl c of
-     ch@(Chunk _ x) :< r ->
+     (Chunk _ x) :< r ->
        let (lx, rx) = grabMoreLines neededNewlines x
            neededNewlines = n + 1 - newlineCount (measure l)
        in (Rope $ l |- mkChunk lx, Rope $ mkChunk rx -| r)

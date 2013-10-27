@@ -27,7 +27,7 @@ import Yi.Keymap.Vim2.StyledRegion
 import Yi.Keymap.Vim2.Utils
 import Yi.MiniBuffer
 import Yi.Misc
-import Yi.Regex (seInput, makeSearchExp)
+import Yi.Regex (searchString, makeSearchExp)
 import Yi.Search (getRegexE, isearchInitE, setRegexE, makeLiteralSearchExp)
 
 mkDigitBinding :: Char -> VimBinding
@@ -285,7 +285,7 @@ searchWordE wholeWord dir = do
             withCount $ continueSearching (const dir)
 
     if wholeWord
-    then case makeSearchExp [] $ "\\<" ++ word ++ "\\>" of
+    then case makeSearchExp [] $ "\\b" ++ word ++ "\\b" of
             Right re -> search re
             Left _ -> return ()
     else search $ makeLiteralSearchExp word
@@ -306,11 +306,11 @@ searchBinding = VimBindingE prereq action
 
 continueSearching :: (Direction -> Direction) -> EditorM ()
 continueSearching fdir = do
-    mbRegex <- getRegexE
-    case mbRegex of
-        Just regex -> do
+    mbSearchExp <- getRegexE
+    case mbSearchExp of
+        Just searchExp -> do
             dir <- fdir <$> use searchDirectionA
-            printMsg $ (if dir == Forward then '/' else '?') : seInput regex
+            printMsg $ (if dir == Forward then '/' else '?') : searchString searchExp
             discard $ doVimSearch Nothing [] dir
         Nothing -> printMsg "No previous search pattern"
 

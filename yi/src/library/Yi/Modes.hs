@@ -13,7 +13,6 @@ import Prelude ()
 import Data.List ( isPrefixOf, map, filter )
 import Data.Maybe
 import System.FilePath
-import Text.Regex.TDFA ((=~))
 
 import Yi.Buffer
 import Yi.Lexer.Alex (Tok(..), tokToSpan)
@@ -41,6 +40,7 @@ import qualified Yi.Lexer.Srmc       as Srmc
 import qualified Yi.Lexer.SVNCommit  as SVNCommit
 import qualified Yi.Lexer.GitCommit  as GitCommit
 import qualified Yi.Lexer.Whitespace  as Whitespace
+import Yi.Regex ((=~))
 import Yi.Syntax.OnlineTree as OnlineTree
 import qualified Yi.IncrementalParse as IncrParser
 

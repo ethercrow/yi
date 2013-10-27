@@ -55,7 +55,7 @@ haskellAbstract = emptyMode
      For now though this is probably okay given the users of
      'yi' are mostly haskell hackers, as of yet. -}
     where extensions = ["hs", "x", "hsc", "hsinc"]
-          shebangPattern = "^#![[:space:]]*/usr/bin/env[[:space:]]+runhaskell"
+          shebangPattern = "^#!\\s*/usr/bin/env\\s+(runhaskell|runghc)"
 
 -- | "Clever" haskell mode, using the paren-matching syntax.
 cleverMode :: Mode (Paren.Tree (Tok Haskell.Token))

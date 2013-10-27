@@ -360,7 +360,7 @@ setTmpStatus delay s = do
   b <- case bs of
          (b':_) -> return $ bkey b'
          [] -> stringToNewBuffer (Left "messages") (R.fromString "")
-  withGivenBuffer0 b $ do botB; insertN (show s ++ "\n")
+  withGivenBuffer0 b $ do botB; insertN (show (fst s) ++ "\n")
 
 
 -- ---------------------------------------------------------------------
@@ -578,7 +578,7 @@ focusWindowE k = do
         searchWindowSet r@(True, _, _) _ws = r
 
     case foldl searchWindowSet  (False, 0, 0) ts of
-        (False, _, _) -> fail $ "No window with key " ++ show wkey ++ "found. (focusWindowE)"
+        (False, _, _) -> fail $ "No window with key " ++ show k ++ "found. (focusWindowE)"
         (True, tabIndex, winIndex) -> do
             assign tabsA (fromJust $ PL.moveTo tabIndex ts)
             (%=) windowsA (\ws -> fromJust $ PL.moveTo winIndex ws)

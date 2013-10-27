@@ -26,11 +26,13 @@ test_makeSearchExp = testGroup "makeSearchExp" [
                 i @=? ".*"
                 opts @=? []
             Left msg -> assertFailure msg
-  , testCase "empty regex" $ do
+  , testCase "'match anything' regex" $ do
         let r = makeSearchExp [] ""
         case r of
-            Right _ -> assertFailure $ "Expected failure but got " ++ show r
-            Left _ -> return ()
+            Right (SearchExp i _ opts) -> do
+                i @=? ""
+                opts @=? []
+            Left _ -> assertFailure $ "Expected failure but got " ++ show r
   , testCase "invalid regex" $ do
         let r = makeSearchExp [] "*"
         case r of
