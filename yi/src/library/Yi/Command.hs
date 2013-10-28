@@ -15,7 +15,6 @@ import Control.Monad.Trans (MonadIO (..))
 import Prelude ()
 import Yi.Core
 import Yi.MiniBuffer
-import qualified Yi.Mode.Compilation as Compilation
 import Yi.Process
 import Yi.UI.Common 
 import qualified Yi.Mode.Interactive as Interactive
@@ -77,7 +76,6 @@ buildRun cmd args onExit = withOtherWindow $ do
    withEditor $ do
        maybeM deleteBuffer =<< cabalBuffer <$> getDynamic
        setDynamic $ CabalBuffer $ Just b
-       withBuffer0 $ setMode Compilation.mode
    return ()
 
 makeBuild :: CommandArguments -> YiM ()
@@ -108,5 +106,3 @@ grepFind (Doc filePattern) (Doc searchedRegex) = withOtherWindow $ do
     discard $ startSubprocess "find" [".",
                                       "-name", "_darcs", "-prune", "-o",
                                       "-name", filePattern, "-exec", "grep", "-Hnie", searchedRegex, "{}", ";"] (const $ return ())
-    withBuffer $ setMode Compilation.mode
-    return ()

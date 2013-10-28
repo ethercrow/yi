@@ -1,58 +1,64 @@
 {-# LANGUAGE Rank2Types #-}
-module Yi.Modes (TokenBasedMode, fundamentalMode,
-                 cMode, objectiveCMode, cppMode, cabalMode,
-                 srmcMode, ocamlMode, ottMode, gnuMakeMode,
-                 perlMode, pythonMode, javaMode, jsonMode, anyExtension,
-                 extensionOrContentsMatch, linearSyntaxMode,
-                 svnCommitMode, hookModes, applyModeHooks,
-                 lookupMode, whitespaceMode, removeAnnots,
-                 gitCommitMode, rubyMode
+module Yi.Modes (-- TokenBasedMode,
+                 fundamentalMode,
+                 -- cMode, objectiveCMode, cppMode, cabalMode,
+                 -- srmcMode, ocamlMode, ottMode, gnuMakeMode,
+                 -- perlMode, pythonMode, javaMode, jsonMode,
+                 anyExtension,
+                 extensionOrContentsMatch,
+                 -- linearSyntaxMode,
+                 -- svnCommitMode, hookModes,
+                 applyModeHooks,
+                 lookupMode,
+                 -- whitespaceMode,
+                 removeAnnots,
+                 -- gitCommitMode, rubyMode
                 ) where
 
 import Prelude ()
-import Data.List ( isPrefixOf, map, filter )
+import Data.List (map, filter)
 import Data.Maybe
 import System.FilePath
 import Text.Regex.TDFA ((=~))
 
 import Yi.Buffer
-import Yi.Lexer.Alex (Tok(..), tokToSpan)
+-- import Yi.Lexer.Alex (Tok(..), tokToSpan)
 import Yi.Prelude
-import Yi.Style
-import Yi.Syntax
-import Yi.Syntax.Tree
-import qualified Yi.Syntax.Driver as Driver
+-- import Yi.Style
+-- import Yi.Syntax
+-- import Yi.Syntax.Tree
+-- import qualified Yi.Syntax.Driver as Driver
 import Yi.Keymap
 import Yi.MiniBuffer
-import qualified Yi.Lexer.Alex       as Alex
-import qualified Yi.Lexer.Cabal      as Cabal
-import qualified Yi.Lexer.C          as C
-import qualified Yi.Lexer.ObjectiveC as ObjectiveC
-import qualified Yi.Lexer.Cplusplus  as Cplusplus
-import qualified Yi.Lexer.GNUMake    as GNUMake
-import qualified Yi.Lexer.OCaml      as OCaml
-import qualified Yi.Lexer.Ott        as Ott
-import qualified Yi.Lexer.Perl       as Perl
-import qualified Yi.Lexer.Python     as Python
-import qualified Yi.Lexer.Java       as Java
-import qualified Yi.Lexer.JSON       as JSON
-import qualified Yi.Lexer.Ruby       as Ruby
-import qualified Yi.Lexer.Srmc       as Srmc
-import qualified Yi.Lexer.SVNCommit  as SVNCommit
-import qualified Yi.Lexer.GitCommit  as GitCommit
-import qualified Yi.Lexer.Whitespace  as Whitespace
-import Yi.Syntax.OnlineTree as OnlineTree
-import qualified Yi.IncrementalParse as IncrParser
+-- import qualified Yi.Lexer.Alex       as Alex
+-- import qualified Yi.Lexer.Cabal      as Cabal
+-- import qualified Yi.Lexer.C          as C
+-- import qualified Yi.Lexer.ObjectiveC as ObjectiveC
+-- import qualified Yi.Lexer.Cplusplus  as Cplusplus
+-- import qualified Yi.Lexer.GNUMake    as GNUMake
+-- import qualified Yi.Lexer.OCaml      as OCaml
+-- import qualified Yi.Lexer.Ott        as Ott
+-- import qualified Yi.Lexer.Perl       as Perl
+-- import qualified Yi.Lexer.Python     as Python
+-- import qualified Yi.Lexer.Java       as Java
+-- import qualified Yi.Lexer.JSON       as JSON
+-- import qualified Yi.Lexer.Ruby       as Ruby
+-- import qualified Yi.Lexer.Srmc       as Srmc
+-- import qualified Yi.Lexer.SVNCommit  as SVNCommit
+-- import qualified Yi.Lexer.GitCommit  as GitCommit
+-- import qualified Yi.Lexer.Whitespace  as Whitespace
+-- import Yi.Syntax.OnlineTree as OnlineTree
+-- import qualified Yi.IncrementalParse as IncrParser
 
-type TokenBasedMode tok = Mode (Tree (Tok tok))
-type StyleBasedMode = TokenBasedMode StyleName
+-- type TokenBasedMode tok = Mode (Tree (Tok tok))
+-- type StyleBasedMode = TokenBasedMode StyleName
+
+-- svnCommitMode, cMode, objectiveCMode, cppMode, cabalMode,
+--   srmcMode, ottMode, gnuMakeMode, perlMode, pythonMode,
+--   javaMode, jsonMode, rubyMode :: StyleBasedMode
+-- ocamlMode :: TokenBasedMode OCaml.Token
 
 fundamentalMode :: Mode syntax
-svnCommitMode, cMode, objectiveCMode, cppMode, cabalMode,
-  srmcMode, ottMode, gnuMakeMode, perlMode, pythonMode,
-  javaMode, jsonMode, rubyMode :: StyleBasedMode
-ocamlMode :: TokenBasedMode OCaml.Token
-
 fundamentalMode = emptyMode
   { 
    modeName = "fundamental",
@@ -61,116 +67,116 @@ fundamentalMode = emptyMode
    modePrettify = const fillParagraph
   }
 
-linearSyntaxMode :: forall lexerState t.
-                                                (Show lexerState) =>
-                                                lexerState
-                                                -> ((IncrParser.AlexState lexerState,
-                                                     Alex.AlexInput)
-                                                    -> Maybe
-                                                         (Tok t,
-                                                          (IncrParser.AlexState lexerState,
-                                                           Alex.AlexInput)))
-                                                -> (t -> StyleName)
-                                                -> Mode (Tree (Tok t))
-linearSyntaxMode initSt scanToken tokenToStyle 
-    = fundamentalMode { 
-                        modeHL = ExtHL $ Driver.mkHighlighter (IncrParser.scanner OnlineTree.manyToks . lexer),
-                        modeGetStrokes = tokenBasedStrokes tokenToStroke
-                      }
-    where tokenToStroke = fmap tokenToStyle . tokToSpan
-          lexer = Alex.lexScanner scanToken initSt
+-- linearSyntaxMode :: forall lexerState t.
+--                                                 (Show lexerState) =>
+--                                                 lexerState
+--                                                 -> ((IncrParser.AlexState lexerState,
+--                                                      Alex.AlexInput)
+--                                                     -> Maybe
+--                                                          (Tok t,
+--                                                           (IncrParser.AlexState lexerState,
+--                                                            Alex.AlexInput)))
+--                                                 -> (t -> StyleName)
+--                                                 -> Mode (Tree (Tok t))
+-- linearSyntaxMode initSt scanToken tokenToStyle 
+--     = fundamentalMode { 
+--                         modeHL = ExtHL $ Driver.mkHighlighter (IncrParser.scanner OnlineTree.manyToks . lexer),
+--                         modeGetStrokes = tokenBasedStrokes tokenToStroke
+--                       }
+--     where tokenToStroke = fmap tokenToStyle . tokToSpan
+--           lexer = Alex.lexScanner scanToken initSt
 
 removeAnnots :: Mode a -> Mode a
 removeAnnots m = m { modeName = modeName m ++ " no annots", modeGetAnnotations = modeGetAnnotations emptyMode }
 
-cMode = (linearSyntaxMode C.initState C.alexScanToken id)
-  {
-    modeApplies = anyExtension ["c", "h"], 
-    modeName = "c"
-  }
+-- cMode = (linearSyntaxMode C.initState C.alexScanToken id)
+--   {
+--     modeApplies = anyExtension ["c", "h"], 
+--     modeName = "c"
+--   }
 
-objectiveCMode = (linearSyntaxMode ObjectiveC.initState ObjectiveC.alexScanToken id)
-  {
-    modeApplies = anyExtension ["m", "mm"],
-    modeName = "objective-c"
-  }
+-- objectiveCMode = (linearSyntaxMode ObjectiveC.initState ObjectiveC.alexScanToken id)
+--   {
+--     modeApplies = anyExtension ["m", "mm"],
+--     modeName = "objective-c"
+--   }
 
-cppMode = (linearSyntaxMode Cplusplus.initState Cplusplus.alexScanToken id)
-  {
-    modeApplies = anyExtension ["cxx", "cpp", "hxx"], 
-    modeName = "c++"
-  }
+-- cppMode = (linearSyntaxMode Cplusplus.initState Cplusplus.alexScanToken id)
+--   {
+--     modeApplies = anyExtension ["cxx", "cpp", "hxx"], 
+--     modeName = "c++"
+--   }
 
-cabalMode = (linearSyntaxMode Cabal.initState Cabal.alexScanToken id)
-  {
-    modeName = "cabal",
-    modeApplies = anyExtension ["cabal"],
-    modeToggleCommentSelection = toggleCommentSelectionB "-- " "--"
-  }
+-- cabalMode = (linearSyntaxMode Cabal.initState Cabal.alexScanToken id)
+--   {
+--     modeName = "cabal",
+--     modeApplies = anyExtension ["cabal"],
+--     modeToggleCommentSelection = toggleCommentSelectionB "-- " "--"
+--   }
 
 
-srmcMode = (linearSyntaxMode Srmc.initState Srmc.alexScanToken id)
-  {
-    modeName = "srmc",
-    modeApplies = anyExtension ["pepa", -- pepa is a subset of srmc    
-                                "srmc"]
-  }
+-- srmcMode = (linearSyntaxMode Srmc.initState Srmc.alexScanToken id)
+--   {
+--     modeName = "srmc",
+--     modeApplies = anyExtension ["pepa", -- pepa is a subset of srmc    
+--                                 "srmc"]
+--   }
 
-gitCommitMode :: Mode (Tree (Tok GitCommit.Token))
-gitCommitMode = (linearSyntaxMode GitCommit.initState GitCommit.alexScanToken id)
-  {
-    modeName = "git-commit",
-    modeApplies = \path _ -> takeFileName path == "COMMIT_EDITMSG" &&
-                             takeFileName (takeDirectory path) == ".git"
-  }
+-- gitCommitMode :: Mode (Tree (Tok GitCommit.Token))
+-- gitCommitMode = (linearSyntaxMode GitCommit.initState GitCommit.alexScanToken id)
+--   {
+--     modeName = "git-commit",
+--     modeApplies = \path _ -> takeFileName path == "COMMIT_EDITMSG" &&
+--                              takeFileName (takeDirectory path) == ".git"
+--   }
 
-svnCommitMode = (linearSyntaxMode SVNCommit.initState SVNCommit.alexScanToken id)
-  {
-    modeName = "svn-commit",
-    modeApplies = \path _contents -> isPrefixOf "svn-commit" path && extensionMatches ["tmp"] path 
-  }
+-- svnCommitMode = (linearSyntaxMode SVNCommit.initState SVNCommit.alexScanToken id)
+--   {
+--     modeName = "svn-commit",
+--     modeApplies = \path _contents -> isPrefixOf "svn-commit" path && extensionMatches ["tmp"] path 
+--   }
 
-ocamlMode = (linearSyntaxMode OCaml.initState OCaml.alexScanToken OCaml.tokenToStyle)
-  {
-    modeName = "ocaml",
-    modeApplies = anyExtension ["ml", "mli", "mly", "mll", "ml4", "mlp4"]
-  }
+-- ocamlMode = (linearSyntaxMode OCaml.initState OCaml.alexScanToken OCaml.tokenToStyle)
+--   {
+--     modeName = "ocaml",
+--     modeApplies = anyExtension ["ml", "mli", "mly", "mll", "ml4", "mlp4"]
+--   }
 
-perlMode = (linearSyntaxMode Perl.initState Perl.alexScanToken id)
-  {
-    modeName = "perl",
-    modeApplies = anyExtension ["t", "pl", "pm"]
-  }
+-- perlMode = (linearSyntaxMode Perl.initState Perl.alexScanToken id)
+--   {
+--     modeName = "perl",
+--     modeApplies = anyExtension ["t", "pl", "pm"]
+--   }
 
-rubyMode = (linearSyntaxMode Ruby.initState Ruby.alexScanToken id)
-  {
-    modeName = "ruby",
-    modeApplies = anyExtension ["rb", "ru"]
-  }
+-- rubyMode = (linearSyntaxMode Ruby.initState Ruby.alexScanToken id)
+--   {
+--     modeName = "ruby",
+--     modeApplies = anyExtension ["rb", "ru"]
+--   }
 
-pythonMode = base
-  {
-    modeName = "python",
-    modeApplies = anyExtension ["py"],
-    modeIndentSettings = (modeIndentSettings base)
-      {
-        expandTabs = True,
-        tabSize = 4
-      }
-  }
-    where base = linearSyntaxMode Python.initState Python.alexScanToken id
+-- pythonMode = base
+--   {
+--     modeName = "python",
+--     modeApplies = anyExtension ["py"],
+--     modeIndentSettings = (modeIndentSettings base)
+--       {
+--         expandTabs = True,
+--         tabSize = 4
+--       }
+--   }
+--     where base = linearSyntaxMode Python.initState Python.alexScanToken id
 
-javaMode = (linearSyntaxMode Java.initState Java.alexScanToken id)
-  {
-    modeName = "java",
-    modeApplies = anyExtension ["java"]
-  }
+-- javaMode = (linearSyntaxMode Java.initState Java.alexScanToken id)
+--   {
+--     modeName = "java",
+--     modeApplies = anyExtension ["java"]
+--   }
 
-jsonMode = (linearSyntaxMode JSON.initState JSON.alexScanToken id)
-  {
-    modeName = "json",
-    modeApplies = anyExtension ["json"]
-  }
+-- jsonMode = (linearSyntaxMode JSON.initState JSON.alexScanToken id)
+--   {
+--     modeName = "json",
+--     modeApplies = anyExtension ["json"]
+--   }
 
 isMakefile :: FilePath -> String -> Bool
 isMakefile path _contents = matches $ takeFileName path
@@ -180,33 +186,33 @@ isMakefile path _contents = matches $ takeFileName path
           matches filename      = extensionMatches ["mk"] filename
           -- TODO: .mk is fairly standard but are there others?
 
-gnuMakeMode = base
-  {
-    modeName = "Makefile",
-    modeApplies = isMakefile,
-    modeIndentSettings = (modeIndentSettings base)
-      {
-        expandTabs = False,
-        shiftWidth = 8
-      }
-  }
-    where base = linearSyntaxMode GNUMake.initState GNUMake.alexScanToken id
+-- gnuMakeMode = base
+--   {
+--     modeName = "Makefile",
+--     modeApplies = isMakefile,
+--     modeIndentSettings = (modeIndentSettings base)
+--       {
+--         expandTabs = False,
+--         shiftWidth = 8
+--       }
+--   }
+--     where base = linearSyntaxMode GNUMake.initState GNUMake.alexScanToken id
 
-ottMode = (linearSyntaxMode Ott.initState Ott.alexScanToken id)
-  {
-    modeName = "ott",
-    modeApplies = anyExtension ["ott"]
-  }
+-- ottMode = (linearSyntaxMode Ott.initState Ott.alexScanToken id)
+--   {
+--     modeName = "ott",
+--     modeApplies = anyExtension ["ott"]
+--   }
 
-whitespaceMode :: TokenBasedMode StyleName
-whitespaceMode = base
-  {
-    modeName = "whitespace",
-    modeApplies = anyExtension ["ws"],
-    modeIndent = \_ _ -> insertB '\t'
-  }
-    where
-      base = linearSyntaxMode Whitespace.initState Whitespace.alexScanToken id
+-- whitespaceMode :: TokenBasedMode StyleName
+-- whitespaceMode = base
+--   {
+--     modeName = "whitespace",
+--     modeApplies = anyExtension ["ws"],
+--     modeIndent = \_ _ -> insertB '\t'
+--   }
+--     where
+--       base = linearSyntaxMode Whitespace.initState Whitespace.alexScanToken id
 
 
 -- | Determines if the file's extension is one of the extensions in the list.

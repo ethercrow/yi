@@ -35,10 +35,10 @@ import qualified Yi.Keymap.Cua  as Cua
 import qualified Yi.Keymap.Emacs  as Emacs
 import qualified Yi.Keymap.Vim  as Vim
 import qualified Yi.Keymap.Vim2  as Vim2
-import qualified Yi.Mode.Abella as Abella
-import qualified Yi.Mode.Haskell as Haskell
-import qualified Yi.Mode.JavaScript as JS
-import qualified Yi.Mode.Latex as Latex
+-- import qualified Yi.Mode.Abella as Abella
+-- import qualified Yi.Mode.Haskell as Haskell
+-- import qualified Yi.Mode.JavaScript as JS
+-- import qualified Yi.Mode.Latex as Latex
 import qualified Yi.Interact as I
 import qualified Data.Rope as R
 
@@ -115,8 +115,8 @@ defaultPublishedActions = HM.fromList $
     , ("sortLines"              , box sortLines)
     , ("unLineCommentSelectionB", box unLineCommentSelectionB)
     , ("writeB"                 , box writeB)
-    , ("ghciGet"                , box Haskell.ghciGet)
-    , ("abella"                 , box Abella.abella)
+    -- , ("ghciGet"                , box Haskell.ghciGet)
+    -- , ("abella"                 , box Abella.abella)
 #ifdef SCION
     , ("scion"                  , box scion)
 #endif
@@ -150,30 +150,30 @@ defaultConfig =
          , defaultKm        = modelessKeymapSet nilKeymap
          , startActions     = []
          , initialActions   = []
-         , modeTable = [AnyMode Haskell.cleverMode,
-                        AnyMode Haskell.preciseMode,
-                        AnyMode Latex.latexMode3,
-                        AnyMode Latex.fastMode,
-                        AnyMode Abella.abellaModeEmacs,
-                        AnyMode cMode,
-                        AnyMode objectiveCMode,
-                        AnyMode cppMode,
-                        AnyMode Haskell.literateMode,
-                        AnyMode cabalMode,
-                        AnyMode gnuMakeMode,
-                        AnyMode srmcMode,
-                        AnyMode ocamlMode,
-                        AnyMode ottMode,
-                        AnyMode perlMode,
-                        AnyMode (JS.hooks JS.javaScriptMode),
-                        AnyMode pythonMode,
-                        AnyMode rubyMode,
-                        AnyMode javaMode,
-                        AnyMode jsonMode,
+         , modeTable = [-- AnyMode Haskell.cleverMode,
+                        -- AnyMode Haskell.preciseMode,
+                        -- AnyMode Latex.latexMode3,
+                        -- AnyMode Latex.fastMode,
+                        -- AnyMode Abella.abellaModeEmacs,
+                        -- AnyMode cMode,
+                        -- AnyMode objectiveCMode,
+                        -- AnyMode cppMode,
+                        -- AnyMode Haskell.literateMode,
+                        -- AnyMode cabalMode,
+                        -- AnyMode gnuMakeMode,
+                        -- AnyMode srmcMode,
+                        -- AnyMode ocamlMode,
+                        -- AnyMode ottMode,
+                        -- AnyMode perlMode,
+                        -- AnyMode (JS.hooks JS.javaScriptMode),
+                        -- AnyMode pythonMode,
+                        -- AnyMode rubyMode,
+                        -- AnyMode javaMode,
+                        -- AnyMode jsonMode,
                         AnyMode ireaderMode,
-                        AnyMode svnCommitMode,
-                        AnyMode gitCommitMode,
-                        AnyMode whitespaceMode,
+                        -- AnyMode svnCommitMode,
+                        -- AnyMode gitCommitMode,
+                        -- AnyMode whitespaceMode,
                         AnyMode fundamentalMode]
          , debugMode = False
          , configKillringAccumulate = False
@@ -211,7 +211,7 @@ escToMeta = mkAutomaton $ forever $ (anyEvent >>= I.write) ||> do
 toVimStyleConfig cfg = cfg { defaultKm = Vim.keymapSet
                            , configUI = (configUI cfg) { configScrollStyle = Just SingleLine}
                            , configRegionStyle = Inclusive
-                           , modeTable = AnyMode Abella.abellaModeVim : modeTable cfg }
+                           , modeTable = modeTable cfg }
 
 toVim2StyleConfig cfg = cfg { defaultKm = Vim2.keymapSet
                             , configUI = (configUI cfg) { configScrollStyle = Just SingleLine}

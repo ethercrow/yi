@@ -4,7 +4,7 @@
 module Yi.Syntax.Layout (layoutHandler, State) where
 
 import Yi.Syntax
-import Yi.Lexer.Alex
+-- import Yi.Lexer.Alex
 import Yi.Prelude
 import Prelude ()
 import Data.Maybe (isJust)

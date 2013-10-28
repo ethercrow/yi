@@ -6,26 +6,6 @@ import Prelude ()
 import Yi.Modes
 import Yi.Core
 import Yi.History
-import Yi.Lexer.Alex (Tok)
-import Yi.Lexer.Compilation (Token)
-import qualified Yi.Mode.Compilation as Compilation
-import qualified Yi.Syntax.OnlineTree as OnlineTree
-
-mode :: Mode (OnlineTree.Tree (Tok Token))
-mode = Compilation.mode
-  { modeApplies = modeNeverApplies,
-    modeName = "interactive",
-    modeKeymap = topKeymapA ^: ((<||)
-     (choice
-      [spec KHome ?>>! ghciHome,
-       spec KEnter ?>>! do
-          eof <- withBuffer $ atLastLine
-          if eof
-            then feedCommand
-            else withSyntax modeFollow,
-       meta (char 'p') ?>>! interactHistoryMove 1,
-       meta (char 'n') ?>>! interactHistoryMove (-1)
-      ])) }
 
 -- | The GHCi prompt always begins with ">"; this goes to just before it, or if one is already at the start
 -- of the prompt, goes to the beginning of the line. (If at the beginning of the line, this pushes you forward to it.)
@@ -67,12 +47,12 @@ interactive :: String -> [String] -> YiM BufferRef
 interactive cmd args = do
     b <- startSubprocess cmd args (const $ return ())
     withEditor $ interactHistoryStart
-    mode' <- lookupMode $ AnyMode mode
+    let mode' = fundamentalMode
     withBuffer $ do m1 <- getMarkB (Just "StdERR")
                     m2 <- getMarkB (Just "StdOUT")
                     modifyMarkB m1 (\v -> v {markGravity = Backward})
                     modifyMarkB m2 (\v -> v {markGravity = Backward})
-                    setAnyMode mode'
+                    setAnyMode (AnyMode mode')
     return b
 
 -- | Send the type command to the process

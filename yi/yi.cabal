@@ -119,7 +119,7 @@ library
     Yi.Hoogle
     Yi.Hooks
     Yi.IReader
-    Yi.IncrementalParse
+    -- Yi.IncrementalParse
     Yi.Interact
     Yi.JumpList
     Yi.Keymap
@@ -171,41 +171,41 @@ library
     Yi.Keymap.Vim2.VisualMap
     Yi.KillRing
     Yi.Layout
-    Yi.Lexer.Abella
-    Yi.Lexer.Alex
-    Yi.Lexer.Cabal
-    Yi.Lexer.Compilation
-    Yi.Lexer.C
-    Yi.Lexer.ObjectiveC
-    Yi.Lexer.Cplusplus
-    Yi.Lexer.Haskell
-    Yi.Lexer.JavaScript
-    Yi.Lexer.Java
-    Yi.Lexer.JSON
-    Yi.Lexer.Latex
-    Yi.Lexer.LiterateHaskell
-    Yi.Lexer.GitCommit
-    Yi.Lexer.GNUMake
-    Yi.Lexer.OCaml
-    Yi.Lexer.Ott
-    Yi.Lexer.Perl
-    Yi.Lexer.Python
-    Yi.Lexer.Ruby
-    Yi.Lexer.Srmc
-    Yi.Lexer.SVNCommit
-    Yi.Lexer.Whitespace
+    -- Yi.Lexer.Abella
+    -- Yi.Lexer.Alex
+    -- Yi.Lexer.Cabal
+    -- Yi.Lexer.Compilation
+    -- Yi.Lexer.C
+    -- Yi.Lexer.ObjectiveC
+    -- Yi.Lexer.Cplusplus
+    -- Yi.Lexer.Haskell
+    -- Yi.Lexer.JavaScript
+    -- Yi.Lexer.Java
+    -- Yi.Lexer.JSON
+    -- Yi.Lexer.Latex
+    -- Yi.Lexer.LiterateHaskell
+    -- Yi.Lexer.GitCommit
+    -- Yi.Lexer.GNUMake
+    -- Yi.Lexer.OCaml
+    -- Yi.Lexer.Ott
+    -- Yi.Lexer.Perl
+    -- Yi.Lexer.Python
+    -- Yi.Lexer.Ruby
+    -- Yi.Lexer.Srmc
+    -- Yi.Lexer.SVNCommit
+    -- Yi.Lexer.Whitespace
     Yi.Main
     Yi.MiniBuffer
     Yi.Misc
-    Yi.Mode.Abella
+    -- Yi.Mode.Abella
     Yi.Mode.Buffers
-    Yi.Mode.Compilation
-    Yi.Mode.Haskell
-    Yi.Mode.Haskell.Dollarify
+    -- Yi.Mode.Compilation
+    -- Yi.Mode.Haskell
+    -- Yi.Mode.Haskell.Dollarify
     Yi.Mode.IReader
     Yi.Mode.Interactive
-    Yi.Mode.JavaScript
-    Yi.Mode.Latex
+    -- Yi.Mode.JavaScript
+    -- Yi.Mode.Latex
     Yi.Modes
     Yi.Monad
     Yi.Paths
@@ -222,15 +222,15 @@ library
     Yi.Style
     Yi.Style.Library
     Yi.Syntax
-    Yi.Syntax.Driver
-    Yi.Syntax.Haskell
-    Yi.Syntax.JavaScript
-    Yi.Syntax.Latex
-    Yi.Syntax.Layout
-    Yi.Syntax.OnlineTree
-    Yi.Syntax.Paren
-    Yi.Syntax.Tree
-    Yi.Syntax.Strokes.Haskell
+    -- Yi.Syntax.Driver
+    -- Yi.Syntax.Haskell
+    -- Yi.Syntax.JavaScript
+    -- Yi.Syntax.Latex
+    -- Yi.Syntax.Layout
+    -- Yi.Syntax.OnlineTree
+    -- Yi.Syntax.Paren
+    -- Yi.Syntax.Tree
+    -- Yi.Syntax.Strokes.Haskell
     Yi.Tab
     Yi.Tag
     Yi.TextCompletion,
@@ -238,7 +238,7 @@ library
     Yi.UI.Batch
     Yi.UI.Utils
     Yi.UI.TabBar
-    Yi.Verifier.JavaScript
+    -- Yi.Verifier.JavaScript
     Yi.Window
     Yi.Char.Unicode
 
@@ -380,7 +380,7 @@ library
 
     -- "Internal" modules that the user better not see.
     Yi.Buffer.Implementation,
-    Parser.Incremental,
+    -- Parser.Incremental,
 
     -- Should probably be split out to another package.
     Control.Exc,

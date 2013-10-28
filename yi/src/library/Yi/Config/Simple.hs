@@ -73,7 +73,6 @@ module Yi.Config.Simple (
   module Yi.Style,
   module Yi.Style.Library,
   module Yi.Misc,
-  module Yi.Mode.Haskell,
 #ifdef SCION
   module Yi.Scion,
 #endif
@@ -93,7 +92,6 @@ import Yi.Search
 import Yi.Style
 import Yi.Style.Library
 import Yi.Misc
-import Yi.Mode.Haskell
 #ifdef SCION
 import Yi.Scion
 #endif
