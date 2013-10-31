@@ -57,6 +57,7 @@ stringToEvent s =
 eventToString :: Event -> String
 eventToString (Event (KASCII '<') []) = "<lt>"
 eventToString (Event (KASCII c) []) = [c]
+eventToString (Event (KASCII 'm') [MCtrl]) = "<CR>"
 eventToString (Event (KASCII c) [MCtrl]) = ['<', 'C', '-', c, '>']
 eventToString (Event (KASCII c) [MShift]) = [toUpper c]
 eventToString (Event (KFun x) []) = "<F" ++ show x ++ ">"
