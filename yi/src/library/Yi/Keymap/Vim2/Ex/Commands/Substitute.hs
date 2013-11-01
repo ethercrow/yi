@@ -16,7 +16,7 @@ import Yi.Search
 
 parse :: String -> Maybe ExCommand
 parse = Common.parse $ do
-    percents <- P.many (P.char '%')
+    range <- Common.parseRange
     discard $ P.try (P.string "substitute") <|> P.string "s"
     delimiter <- P.oneOf "!@#$%^&*()[]{}<>/.,~';:?-="
     from <- P.many (P.noneOf [delimiter])
@@ -27,12 +27,12 @@ parse = Common.parse $ do
     return $! substitute from to delimiter
         ('g' `elem` flagChars)
         ('i' `elem` flagChars)
-        (not $ null percents)
+        range
 
-substitute :: String -> String -> Char -> Bool -> Bool -> Bool -> ExCommand
-substitute from to delimiter global caseInsensitive allLines = Common.pureExCommand {
+substitute :: String -> String -> Char -> Bool -> Bool -> LineRange -> ExCommand
+substitute from to delimiter global caseInsensitive range = Common.pureExCommand {
     cmdShow = concat
-        [ if allLines then "%" else ""
+        [ show range
         , "substitute" , delimiter : from , delimiter : to , [delimiter]
         , if caseInsensitive then "i" else ""
         , if global then "g" else ""
@@ -46,9 +46,23 @@ substitute from to delimiter global caseInsensitive allLines = Common.pureExComm
                     discard $ searchAndRepRegion0 se to global region
                 Left _ -> return ()
 
-        if allLines
-        then withEveryLineB replace
-        else replace
+        case range of
+            LineRange LRBCurrentLine LRBCurrentLine -> replace
+            LineRange b1 b2 -> do
+              l1 <- lineFromBoundary b1
+              l2 <- lineFromBoundary b2
+              withLinesInRangeB (l1, l2) replace
 
         moveToSol
   }
+
+lineFromBoundary :: LineRangeBoundary -> BufferM Int
+lineFromBoundary (LRBLineNumber i) = return i
+lineFromBoundary LRBEOF = savingPointB $ botB >> curLn
+lineFromBoundary LRBCurrentLine = curLn
+lineFromBoundary (LRBMark markName) = savingPointB $ do
+    mmark <- mayGetMarkB markName
+    case mmark of
+        Nothing -> fail $ "Mark " ++ markName ++ " not set"
+        Just mark -> getMarkPointB mark >>= moveTo >> curLn
+

@@ -28,7 +28,25 @@ parse :: P.GenParser Char () ExCommand -> String -> Maybe ExCommand
 parse parser s = either (const Nothing) Just (P.parse parser "" s)
 
 parseRange :: P.GenParser Char () LineRange
-parseRange = return CurrentLineRange
+parseRange = P.choice [percentRange, twoEndedRange, defaultRange]
+    where percentRange = P.string "%" >> return (LineRange (LRBLineNumber 1) LRBEOF)
+          twoEndedRange = do
+              begin <- boundary
+              discard $ P.char ','
+              end <- boundary
+              return $! LineRange begin end
+          defaultRange = return $! LineRange LRBCurrentLine LRBCurrentLine
+          boundary = P.choice [mark, lineNumber, eof, currentLine]
+          mark = do
+              discard $ P.char '\''
+              c <- P.anyChar
+              return $! LRBMark [c]
+          lineNumber = do
+              ds <- P.many1 P.digit
+              return $! LRBLineNumber (read ds)
+          eof = P.char '$' >> return LRBEOF
+          currentLine = P.char '.' >> return LRBCurrentLine
+
 
 data OptionAction = Set !Bool | Invert | Ask
 

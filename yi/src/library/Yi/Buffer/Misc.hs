@@ -153,6 +153,7 @@ module Yi.Buffer.Misc
   , pointAfterCursorB
   , destinationOfMoveB
   , withEveryLineB
+  , withLinesInRangeB
   , startUpdateTransactionB
   , commitUpdateTransactionB
   )
@@ -1176,9 +1177,13 @@ askWindow :: (Window -> a) -> BufferM a
 askWindow = asks
 
 withEveryLineB :: BufferM () -> BufferM ()
-withEveryLineB action = savingPointB $ do
+withEveryLineB action = do
   lineCount <- lineCountB
-  forM_ [1 .. lineCount] $ \l -> do
+  withLinesInRangeB (1, lineCount) action
+
+withLinesInRangeB :: (Int, Int) -> BufferM () -> BufferM ()
+withLinesInRangeB (begin, end) action = savingPointB $
+  forM_ [begin .. end] $ \l -> do
     discard $ gotoLn l
     action
 

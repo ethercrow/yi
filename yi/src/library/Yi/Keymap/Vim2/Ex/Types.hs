@@ -18,10 +18,18 @@ data ExCommand = ExCommand {
 instance Show ExCommand where
     show = cmdShow
 
-data LineRange
-    = MarkRange String String -- ^ 'a,'b
-    | FullRange               -- ^ %
-    | CurrentLineRange
+data LineRangeBoundary
+    = LRBMark !String
+    | LRBLineNumber !Int
+    | LRBEOF
+    | LRBCurrentLine
+    deriving (Eq, Show)
+
+-- | like :'a,'b or :123,$
+data LineRange = LineRange {
+    lrBegin :: !LineRangeBoundary
+  , lrEnd :: LineRangeBoundary
+  } deriving (Eq, Show)
 
 stringToExCommand :: [String -> Maybe ExCommand] -> String -> Maybe ExCommand
 stringToExCommand parsers s = listToMaybe . mapMaybe ($ s) $ parsers
