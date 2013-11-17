@@ -149,7 +149,7 @@ wordsForCompletion = do
     return $ w0 ++ concatMap words' contents
 
 words' :: String -> [String]
-words' = filter (not . isNothing . charClass . head) . groupBy ((==) `on` charClass)
+words' = filter (isJust . charClass . head) . groupBy ((==) `on` charClass)
 
 charClass :: Char -> Maybe Int
 charClass c = findIndex (generalCategory c `elem`)

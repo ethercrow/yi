@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-
 -- Handles indentation in the keymaps. Includes:
 --  * (TODO) Auto-indentation to the previous lines indentation
 --  * Tab-expansion

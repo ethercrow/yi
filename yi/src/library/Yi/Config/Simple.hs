@@ -1,4 +1,6 @@
-{-# LANGUAGE Rank2Types, CPP, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE CPP #-}
+
 {-# OPTIONS_GHC -fno-warn-duplicate-exports #-} -- for good documentation, we want control over our export list, which occasionally gives us duplicate exports
 
 {- | A simplified configuration interface for Yi. -}

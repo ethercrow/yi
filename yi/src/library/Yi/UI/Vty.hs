@@ -33,7 +33,7 @@ import Yi.Style
 import qualified Yi.UI.Common as Common
 import Yi.Config
 import Yi.Window
-import Yi.Style as Style
+import qualified Yi.Style as Style
 import Graphics.Vty as Vty hiding (refresh, Default)
 import qualified Graphics.Vty as Vty
 import Yi.Keymap (makeAction, YiM)

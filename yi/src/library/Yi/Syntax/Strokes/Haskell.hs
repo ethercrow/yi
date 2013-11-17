@@ -3,14 +3,15 @@
 module Yi.Syntax.Strokes.Haskell (getStrokes, tokenToAnnot) where
 
 import Prelude ()
+import Yi.Prelude
+
 import Data.Maybe
+import Data.Monoid (Endo(..), appEndo, mappend)
+
 import Yi.Lexer.Alex
 import Yi.Lexer.Haskell
 import Yi.Style
 import Yi.Syntax
-import Yi.Prelude
-import Prelude ()
-import Data.Monoid (Endo(..), appEndo, mappend)
 import Yi.Syntax.Haskell
 import Yi.Syntax.Tree (subtrees)
 

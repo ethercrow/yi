@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleContexts, FlexibleInstances,
-     FunctionalDependencies, GeneralizedNewtypeDeriving,
-     MultiParamTypeClasses, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasse #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Yi.Scion where
 

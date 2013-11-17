@@ -175,8 +175,7 @@ class Promptable a where
     getMinibuffer _ = withMinibufferFree
 
 doPrompt :: forall a. Promptable a => (a -> YiM ()) -> YiM ()
-doPrompt act = getMinibuffer witness (getPrompt witness ++ ":") $ 
-                     \string -> act =<< getPromptedValue string
+doPrompt act = getMinibuffer witness (getPrompt witness ++ ":") $ act <=< getPromptedValue
     where witness = error "Promptable argument should not be accessed"
           witness :: a
 

@@ -13,6 +13,7 @@ import Prelude ()
 import Data.Char (toUpper, isDigit)
 import Data.List (break)
 import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
 import Data.Tuple (swap)
 
 import Yi.Event
@@ -20,7 +21,7 @@ import Yi.Keymap.Keys (char, ctrlCh, spec)
 import Yi.Keymap.Vim2.Common
 
 specMap :: M.Map EventString Key
-specMap = M.fromList $ specList
+specMap = M.fromList specList
 
 invSpecMap :: M.Map Key EventString
 invSpecMap = M.fromList $ fmap swap specList
@@ -60,10 +61,9 @@ eventToString (Event (KASCII c) []) = [c]
 eventToString (Event (KASCII c) [MCtrl]) = ['<', 'C', '-', c, '>']
 eventToString (Event (KASCII c) [MShift]) = [toUpper c]
 eventToString (Event (KFun x) []) = "<F" ++ show x ++ ">"
-eventToString e@(Event k []) =
-    case M.lookup k invSpecMap of
-        Just s -> s
-        Nothing -> error $ "Couldn't convert event <" ++ show e ++ "> to string"
+eventToString e@(Event k []) = fromMaybe
+    (error $ "Couldn't convert event <" ++ show e ++ "> to string")
+    (M.lookup k invSpecMap)
 eventToString e = error $ "Couldn't convert event <" ++ show e ++ "> to string"
 
 parseEvents :: String -> [Event]

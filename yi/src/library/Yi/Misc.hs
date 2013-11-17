@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, TypeOperators #-}
+{-# LANGUAGE TypeOperators #-}
+
 -- Copyright (c) 2008 Jean-Philippe Bernardy
 -- | Various high-level functions to further classify.
 module Yi.Misc

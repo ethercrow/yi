@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-
 module Yi.Mode.Shim where
     
 import Control.Monad.State

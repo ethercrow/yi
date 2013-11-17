@@ -1,4 +1,7 @@
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, GeneralizedNewtypeDeriving, MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 --
 -- Copyright (C) 2007 Don Stewart - http://www.cse.unsw.edu.au/~dons
 --

@@ -1,4 +1,7 @@
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, GeneralizedNewtypeDeriving, MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 -- Copyright (C) JP Bernardy 2009
 

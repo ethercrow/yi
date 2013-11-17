@@ -18,20 +18,21 @@ module Yi.Syntax.Haskell ( PModule
                          ) where
 
 import Prelude ()
+import Yi.Prelude
+
+import Control.Arrow ((&&&))
+import Data.DeriveTH
+import qualified Data.Foldable
 import Data.Maybe
 import Data.List ((\\))
-import qualified Data.Foldable
+import Data.Tuple (uncurry)
+
 import Yi.IncrementalParse
 import Yi.Lexer.Alex
 import Yi.Lexer.Haskell
 import Yi.Syntax.Layout
 import Yi.Syntax.Tree
 import Yi.Syntax
-import Yi.Prelude
-import Prelude ()
-import Data.DeriveTH
-import Data.Tuple (uncurry)
-import Control.Arrow ((&&&))
 
 indentScanner :: Scanner (AlexState lexState) (TT)
               -> Scanner (Yi.Syntax.Layout.State Token lexState) (TT)

@@ -1,5 +1,9 @@
-{-# LANGUAGE RecordWildCards, ScopedTypeVariables, MultiParamTypeClasses, DeriveDataTypeable,
-    StandaloneDeriving, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 {-# OPTIONS_GHC -w #-} -- this module isn't finished, and there's heaps of warnings.
 -----------------------------------------------------------------------------
 --

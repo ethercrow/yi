@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP, DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
+
 -- Copyright (C) 2008 JP Bernardy
 
 -- | This module defines buffer operation on regions
