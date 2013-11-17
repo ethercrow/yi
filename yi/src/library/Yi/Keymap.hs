@@ -26,7 +26,6 @@ module Yi.Keymap
     , catchDynE
     , catchJustE
     , handleJustE
-    , shutdown
     , YiAction (..)
     , Yi(..)
     , YiVar(..)
@@ -88,7 +87,6 @@ data Yi = Yi {yiUi          :: UI,
              deriving Typeable
 
 data YiVar = YiVar {yiEditor             :: !Editor,
-                    threads              :: ![ThreadId],           -- ^ all our threads
                     yiSubprocessIdSupply :: !SubprocessId,
                     yiSubprocesses       :: !(M.Map SubprocessId SubprocessInfo)
                    }
@@ -154,11 +152,6 @@ catchJustE p (YiM c) h = YiM $ ReaderT (\r -> catchJust p (runReaderT c r) (\b -
 
 handleJustE :: (Exception e) => (e -> Maybe b) -> (b -> YiM a) -> YiM a -> YiM a
 handleJustE p h c = catchJustE p c h
-
--- | Shut down all of our threads. Should free buffers etc.
-shutdown :: YiM ()
-shutdown = do ts <- threads <$> readsRef yiVar
-              liftIO $ mapM_ killThread ts
 
 -- -------------------------------------------
 

@@ -116,7 +116,7 @@ startEditor cfg st = do
     -- here to add load history etc?
 
     -- Setting up the 1st window is a bit tricky because most functions assume there exists a "current window"
-    newSt <- newMVar $ YiVar editor [] 1 M.empty
+    newSt <- newMVar $ YiVar editor 1 M.empty
     (ui, runYi) <- mdo
         let handler (exception :: SomeException) = runYi $ errorEditor (show exception) >> refreshEditor
             inF ev    = handle handler $ runYi $ dispatch ev
