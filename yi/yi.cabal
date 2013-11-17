@@ -132,7 +132,6 @@ library
     Yi.Keymap.Emacs.Utils
     Yi.Keymap.Keys
     Yi.Keymap.Readline
-    Yi.Keymap.Vim
     Yi.Keymap.Vim.TagStack
     Yi.Keymap.Vim2
     Yi.Keymap.Vim2.Common

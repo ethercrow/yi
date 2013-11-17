@@ -19,7 +19,6 @@ import Yi.Buffer
 import Yi.Dynamic
 import Yi.Keymap
 import Yi.Keymap.Keys
-import Yi.Keymap.Vim (savingInsertCharB)
 import Yi.TextCompletion
 
 type SnippetCmd = RWST (Int, Int) [MarkInfo] () BufferM
@@ -347,7 +346,7 @@ superTab caseSensitive (Supertab expander) =
                       then insertTab
                       else runCompleter
 
-    insertTab = withBuffer $ mapM_ savingInsertCharB =<< tabB
+    insertTab = withBuffer $ mapM_ insertB =<< tabB
 
     runCompleter = do w <- withBuffer $ readPrevWordB
                       case expander w of

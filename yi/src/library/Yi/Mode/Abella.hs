@@ -6,7 +6,7 @@ module Yi.Mode.Abella
 where
 
 import Prelude ()
-import Control.Monad (replicateM_, join)
+import Control.Monad (join)
 import Data.Char (isSpace)
 import Data.Binary
 import Data.Maybe (isJust)
@@ -18,7 +18,6 @@ import qualified Yi.Lexer.Abella as Abella
 import Yi.Syntax.Tree
 import Yi.MiniBuffer (CommandArguments(..))
 import Yi.Lexer.Alex
-import Yi.Keymap.Vim (savingCommandY)
 
 abellaModeGen :: (Char -> [Event]) -> TokenBasedMode Abella.Token
 abellaModeGen abellaBinding =
@@ -29,14 +28,13 @@ abellaModeGen abellaBinding =
   , modeToggleCommentSelection = toggleCommentSelectionB "% " "%"
   , modeKeymap = topKeymapA ^: ((<||)
      (choice
-      [ abellaBinding 'p' ?*>>! sav abellaUndo
-      , abellaBinding 'e' ?*>>! sav abellaEval
-      , abellaBinding 'n' ?*>>! sav abellaNext
-      , abellaBinding 'a' ?*>>! sav abellaAbort
-      , abellaBinding '\r' ?*>>! sav abellaEvalFromProofPoint
+      [ abellaBinding 'p' ?*>>! abellaUndo
+      , abellaBinding 'e' ?*>>! abellaEval
+      , abellaBinding 'n' ?*>>! abellaNext
+      , abellaBinding 'a' ?*>>! abellaAbort
+      , abellaBinding '\r' ?*>>! abellaEvalFromProofPoint
       ]))
   }
-  where sav f = savingCommandY (flip replicateM_ f) 1
 
 abellaModeVim :: TokenBasedMode Abella.Token
 abellaModeVim = abellaModeGen (\ch -> [char '\\', char ch])
