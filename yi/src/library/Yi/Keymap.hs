@@ -27,8 +27,8 @@ module Yi.Keymap
     , catchJustE
     , handleJustE
     , YiAction (..)
-    , Yi(..)
-    , YiVar(..)
+    , YiState(..)
+    , YiMutableState(..)
     , write
     ) where
 
@@ -78,22 +78,22 @@ type KeymapEndo = Keymap -> Keymap
 
 type KeymapProcess = I.P Event Action
 
-data Yi = Yi {yiUi          :: UI,
-              input         :: Event -> IO (),      -- ^ input stream
-              output        :: [Action] -> IO (),   -- ^ output stream
-              yiConfig      :: Config,
-              yiVar         :: MVar YiVar           -- ^ The only mutable state in the program
-             }
-             deriving Typeable
+data YiState = YiState {
+    yiUi :: UI
+  , outputStream  :: [Action] -> IO ()
+  , yiConfig      :: Config
+  , yiVar         :: MVar YiMutableState
+  } deriving Typeable
 
-data YiVar = YiVar {yiEditor             :: !Editor,
-                    yiSubprocessIdSupply :: !SubprocessId,
-                    yiSubprocesses       :: !(M.Map SubprocessId SubprocessInfo)
-                   }
+data YiMutableState = YiMutableState {
+    yiEditor :: !Editor
+  , yiSubprocessIdSupply :: !SubprocessId
+  , yiSubprocesses       :: !(M.Map SubprocessId SubprocessInfo)
+  }
 
 -- | The type of user-bindable functions
-newtype YiM a = YiM {runYiM :: ReaderT Yi IO a}
-    deriving (Monad, MonadReader Yi, MonadIO, Typeable, Functor)
+newtype YiM a = YiM {runYiM :: ReaderT YiState IO a}
+    deriving (Monad, MonadReader YiState, MonadIO, Typeable, Functor)
 
 instance MonadState Editor YiM where
     get = yiEditor <$> (readRef =<< yiVar <$> ask)
@@ -119,7 +119,7 @@ write x = I.write (makeAction x)
 withUI :: (UI -> IO a) -> YiM a
 withUI = with yiUi
 
-unsafeWithEditor :: Config -> MVar YiVar -> EditorM a -> IO a
+unsafeWithEditor :: Config -> MVar YiMutableState -> EditorM a -> IO a
 unsafeWithEditor cfg r f = modifyMVar r $ \var -> do
   let e = yiEditor var
   let (e',a) = runEditor cfg f e
