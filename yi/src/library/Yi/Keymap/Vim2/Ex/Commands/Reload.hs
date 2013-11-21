@@ -5,7 +5,7 @@ module Yi.Keymap.Vim2.Ex.Commands.Reload
 import Prelude ()
 import Yi.Prelude
 
-import {-# source #-} Yi.Boot (reload)
+import Yi.Reload
 import Yi.Keymap
 import Yi.Keymap.Vim2.Ex.Types
 import Yi.Keymap.Vim2.Ex.Commands.Common (impureExCommand)

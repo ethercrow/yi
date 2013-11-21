@@ -13,7 +13,7 @@ import System.Directory
 import System.FilePath
 import System.IO (readFile)
 import Yi.Command (cabalBuildE, cabalConfigureE, grepFind, makeBuild, reloadProjectE, searchSources, shell)
-import {-# source #-} Yi.Boot
+import Yi.Reload
 import Yi.Config
 import Yi.Config.Misc
 import Yi.Paths(getConfigFilename)

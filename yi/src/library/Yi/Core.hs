@@ -55,7 +55,7 @@ import Control.Monad.Trans
 import Control.Exception
 import Control.Exc
 import qualified Data.DelayList as DelayList
-import Data.List (intercalate, partition, unwords)
+import Data.List (partition, unwords)
 import Data.List.Split (splitOn)
 import qualified Data.List.PointedList.Circular as PL
 import qualified Data.Map as M
@@ -83,7 +83,7 @@ import Yi.Process (popen, createSubprocess, readAvailable, SubprocessId, Subproc
 import Yi.String
 import Yi.Style (errorStyle, strongHintStyle)
 import qualified Yi.UI.Common as UI
-import Yi.Window (dummyWindow, bufkey, wkey, winRegion)
+import Yi.Window (dummyWindow, bufkey, winRegion)
 import {-# source #-} Yi.PersistentState(loadPersistentState, savePersistentState)
 
 -- | Make an action suitable for an interactive run.

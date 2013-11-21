@@ -1,12 +1,11 @@
 {-# LANGUAGE CPP #-}
 -- | Boot process of Yi.
 -- Uses Dyre to implement the XMonad-style dynamic reconfiguration.
-module Yi.Boot (yi, yiDriver, reload) where
+module Yi.Boot (yi, yiDriver) where
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Options as Dyre
 import Config.Dyre.Relaunch
-import Control.Monad.State
 import qualified Data.Rope as R
 import System.Environment
 import System.Exit
@@ -15,8 +14,7 @@ import Yi.Config
 import Yi.Editor
 import Yi.Keymap
 import Yi.Main
-import qualified Yi.UI.Common as UI
-import qualified Yi.Paths(getConfigDir, getConfigModules)
+import qualified Yi.Paths (getConfigDir, getConfigModules)
 
 -- | once the custom yi is compiled this restores the editor state (if requested) then proceeds to
 -- run the editor.
@@ -64,15 +62,4 @@ yiDriver cfg = do
                             , Dyre.includeCurrentDirectory = False
                             }
             in Dyre.wrapMain yiParams (finalCfg, cfgcon)
-
--- | "reloads" the configuration
---
--- Serializes the editor state and relaunches Yi using the serialized state.
--- The launch of Yi will result in recompilation of the user's custom yi. This, in effect, "reloads"
--- the configuration.
-reload :: YiM ()
-reload = do
-    editor <- withEditor get
-    withUI (\ui -> UI.end ui False)
-    liftIO $ relaunchWithBinaryState (Just editor) Nothing
 

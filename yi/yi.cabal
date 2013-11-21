@@ -216,6 +216,7 @@ library
     Yi.Rectangle
     Yi.Regex
     Yi.Region
+    Yi.Reload
     Yi.Snippets
     Yi.Snippets.Haskell
     Yi.Search
