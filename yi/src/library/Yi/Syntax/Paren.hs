@@ -18,8 +18,8 @@ import Data.Maybe
 import Data.List (filter, takeWhile)
 import qualified Data.Foldable
 
-indentScanner :: Scanner (AlexState lexState) (TT)
-              -> Scanner (Yi.Syntax.Layout.State Token lexState) (TT)
+indentScanner :: Scanner (AlexState lexState) TT
+              -> Scanner (Yi.Syntax.Layout.State Token lexState) TT
 indentScanner = layoutHandler startsLayout [(Special '(', Special ')'),
                                             (Special '[', Special ']'),
                                             (Special '{', Special '}')] ignoredToken
@@ -29,7 +29,7 @@ indentScanner = layoutHandler startsLayout [(Special '(', Special ')'),
 -- parsing.
 
 isBrace :: TT -> Bool
-isBrace (Tok b _ _) = (Special '{') == b
+isBrace (Tok b _ _) = Special '{' == b
 
 ignoredToken :: TT -> Bool
 ignoredToken (Tok t _ _) = isComment t || t == CppDirective
@@ -52,9 +52,9 @@ $(derive makeFoldable ''Tree)
 instance IsTree Tree where
     emptyNode = Expr []
     uniplate (Paren l g r) = (g,\g' -> Paren l g' r)
-    uniplate (Expr g) = (g,\g' -> Expr g')
-    uniplate (Block s) = (s,\s' -> Block s')
-    uniplate t = ([],\_ -> t)
+    uniplate (Expr g) = (g, Expr)
+    uniplate (Block s) = (s, Block)
+    uniplate t = ([], const t)
 
 -- | Search the given list, and return the 1st tree after the given
 -- point on the given line.  This is the tree that will be moved if
@@ -65,7 +65,7 @@ instance IsTree Tree where
 -- of the line
 getIndentingSubtree :: Tree TT -> Point -> Int -> Maybe (Tree TT)
 getIndentingSubtree root offset line =
-    listToMaybe $ [t | (t,posn) <- takeWhile ((<= line) . posnLine . snd) $ allSubTreesPosn,
+    listToMaybe $ [t | (t, posn) <- takeWhile ((<= line) . posnLine . snd) allSubTreesPosn,
                    -- it's very important that we do a linear search
                    -- here (takeWhile), so that the tree is evaluated
                    -- lazily and therefore parsing it can be lazy.
@@ -76,7 +76,7 @@ getIndentingSubtree root offset line =
 
 -- | Given a tree, return (first offset, number of lines).
 getSubtreeSpan :: Tree TT -> (Point, Int)
-getSubtreeSpan tree = (posnOfs $ first, lastLine - firstLine)
+getSubtreeSpan tree = (posnOfs first, lastLine - firstLine)
     where bounds@[first, _last] = fmap (tokPosn . assertJust) [getFirstElement tree, getLastElement tree]
           [firstLine, lastLine] = fmap posnLine bounds
           assertJust (Just x) = x
@@ -103,7 +103,7 @@ parse' toTok _ = pExpr <* eof
       -- | parse a special symbol
       sym c = symbol (isSpecial [c] . toTok)
 
-      pleaseSym c = (recoverWith errTok) <|> sym c
+      pleaseSym c = recoverWith errTok <|> sym c
 
       pExpr :: P TT (Expr TT)
       pExpr = Yi.Prelude.many pTree
@@ -136,7 +136,7 @@ getStrokes point _begin _end t0 = -- trace (show t0)
               -- left paren wasn't matched: paint it in red.
               -- note that testing this on the "Paren" node actually forces the parsing of the
               -- right paren, undermining online behaviour.
-              | (posnOfs $ tokPosn $ l) == point || (posnOfs $ tokPosn $ r) == point -~ 1
+              | (posnOfs $ tokPosn l) == point || (posnOfs $ tokPosn r) == point -~ 1
 
                = one (modStroke hintStyle (ts l)) <> getStrokesL g <> one (modStroke hintStyle (ts r))
               | otherwise  = one (ts l) <> getStrokesL g <> one (ts r)

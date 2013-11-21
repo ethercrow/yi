@@ -477,10 +477,10 @@ testFilename :: String
 testFilename = "/tmp/ShimTest.hs"
 
 assertLEq :: (Show a, Monad m, Ord a) => [a] -> [a] -> m ()
-assertLEq expected got = do
-  unless ((sort expected)==(sort got)) $
-    error $ "\nexpected: " ++ (show expected) ++ "\ngot:      " ++ (show got)
-            ++ "\ndiff: " ++ (show $ (expected \\ got) ++ (got \\ expected))
+assertLEq expected got =
+  unless (sort expected == sort got) $
+    error $ "\nexpected: " ++ show expected ++ "\ngot:      " ++ show got
+            ++ "\ndiff: " ++ show ((expected \\ got) ++ (got \\ expected))
 
 t1 :: IO ()
 t1 = do
@@ -497,9 +497,9 @@ t_findIdPrefix source pref expected = do
 
 t2 :: IO ()
 t2 = t_findIdPrefix testSource "from"
-       ([("fromTest","Integer"),
-         ("fromJust","Maybe a -> a"),
-         ("fromMaybe","a -> Maybe a -> a")])
+       [("fromTest", "Integer"),
+        ("fromJust", "Maybe a -> a"),
+        ("fromMaybe", "a -> Maybe a -> a")]
 
 t3 :: IO ()
 t3 = t_findIdPrefix testSource "someF" [("someFun","Integer")]

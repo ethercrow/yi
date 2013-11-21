@@ -4,10 +4,8 @@
 
 -- | This module defines buffer operation on regions
 
-module Yi.Buffer.Region 
-  (
-   module Yi.Region
-  , swapRegionsB
+module Yi.Buffer.Region
+  ( swapRegionsB
   , deleteRegionB
   , replaceRegionB
   , replaceRegionB'
@@ -22,8 +20,7 @@ module Yi.Buffer.Region
   , blockifyRegion
   , joinLinesB
   , concatLinesB
-  )
-where
+  ) where
 
 import Prelude ()
 import Yi.Prelude
@@ -35,8 +32,6 @@ import Data.List (filter, length, sort, dropWhile)
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
 import Yi.Buffer.Mode
-import Yi.Region
-import Yi.String (lines')
 import Yi.Window (winRegion)
 
 winRegionB :: BufferM Region

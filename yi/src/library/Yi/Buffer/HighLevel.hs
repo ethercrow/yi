@@ -21,7 +21,6 @@ import Yi.Buffer.Misc
 import Yi.Buffer.Mode
 import Yi.Buffer.Normal
 import Yi.Buffer.Region
-import Yi.String
 import Yi.Window
 import Yi.Config.Misc (ScrollStyle(SingleLine))
 

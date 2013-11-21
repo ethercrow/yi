@@ -137,7 +137,7 @@ printable = VimBindingE prereq editAction
 historyBinding :: VimBinding
 historyBinding = VimBindingE prereq action
     where prereq evs (VimState { vsMode = Ex }) =
-              matchFromBool $ evs `elem` (fmap fst binds)
+              matchFromBool $ evs `elem` fmap fst binds
           prereq _ _ = NoMatch
           action evs = do
               fromJust $ lookup evs binds

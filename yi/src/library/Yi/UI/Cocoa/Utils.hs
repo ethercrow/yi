@@ -8,8 +8,9 @@
 module Yi.UI.Cocoa.Utils where
 
 import Prelude hiding (init)
+
 import Yi.Debug
-import Yi.Region
+import Yi.Buffer.Basic
 import Yi.Style
 
 import Control.Applicative

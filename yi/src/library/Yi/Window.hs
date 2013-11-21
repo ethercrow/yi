@@ -7,11 +7,12 @@
 
 module Yi.Window where
 
-import qualified Prelude
+import Prelude ()
 import Yi.Prelude
+
 import Data.Binary
-import Yi.Buffer.Basic (BufferRef, WindowRef)
-import Yi.Region (Region,emptyRegion)
+
+import Yi.Buffer.Basic (BufferRef, WindowRef, Region, emptyRegion)
 import Yi.JumpList
 
 ------------------------------------------------------------------------

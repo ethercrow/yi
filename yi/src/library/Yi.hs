@@ -11,41 +11,26 @@
 -- in your ~/.config/yi/ scripts
 --
 
-module Yi
-  (
-    module Data.Prototype, -- prototypes are mainly there for config; makes sense to export them.
-    module Yi.Boot,
-    module Yi.Config,
-    module Yi.Core,
-    module Yi.Dired,
-    module Yi.Eval,
-    module Yi.File,
-    module Yi.Config.Default,
-    module Yi.Search,
-    module Yi.Style,
-    module Yi.Style.Library,
-    module Yi.Misc,
-    module Yi.Mode.Haskell,
-    module Yi.Mode.IReader,
-#ifdef SCION
-    module Yi.Scion
-#endif
+module Yi (
+    module Export
+  , module Yi.Mode.Haskell
+  , module Yi.Mode.IReader
   ) where
 
-import Data.Prototype
-import Yi.Boot
-import Yi.Config
-import Yi.Core
-import Yi.Dired
-import Yi.Eval
-import Yi.File
-import Yi.Config.Default
-import Yi.Search
-import Yi.Style
-import Yi.Style.Library
-import Yi.Misc
+import Data.Prototype as Export -- prototypes are mainly there for config; makes sense to export them.
+import Yi.Config as Export
+import Yi.Core as Export
+import Yi.Boot as Export
+import Yi.Dired as Export
+import Yi.Eval as Export
+import Yi.File as Export
+import Yi.Config.Default as Export
+import Yi.Search as Export
+import Yi.Style as Export
+import Yi.Style.Library as Export
+import Yi.Misc as Export
 import Yi.Mode.Haskell (ghciGet, ghciLoadBuffer)
-import Yi.Mode.IReader (ireaderMode, ireadMode) 
+import Yi.Mode.IReader (ireaderMode, ireadMode)
 #ifdef SCION
-import Yi.Scion
+import Yi.Scion as Export
 #endif

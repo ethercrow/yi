@@ -18,6 +18,7 @@ module Yi.Syntax.Tree (IsTree(..), toksAfter, allToks, tokAtOrBefore, toksInRegi
 -- such as multirec, uniplace, emgm, ...
 
 import Prelude (curry)
+import Yi.Prelude
 
 import Control.Arrow (first)
 import Data.List (dropWhile, takeWhile, reverse, filter, zip, take, drop, length, splitAt)
@@ -29,8 +30,6 @@ import Test.QuickCheck
 
 import Yi.Buffer.Basic
 import Yi.Lexer.Alex
-import Yi.Prelude
-import Yi.Region
 
 -- Fundamental types
 type Path = [Int]

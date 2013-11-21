@@ -15,7 +15,6 @@ import Yi.Buffer.Region
 import Prelude ()
 import Data.Char
 import Data.List (span, length, sort, nub, break, reverse, filter, takeWhile, dropWhile)
-import Yi.String
 
 {- |
   Return either a \t or the number of spaces specified by tabSize in the

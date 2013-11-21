@@ -5,18 +5,20 @@
 
 -- | String manipulation utilities
 
-module Yi.String (isBlank,
-                  chomp,
-                  capitalize,
-                  capitalizeFirst,
-                  dropSpace,
-                  fillText,
-                  onLines,
-                  mapLines,
-                  lines',
-                  unlines',
-                  padLeft, padRight
-                 ) where
+module Yi.String (
+    isBlank
+  , chomp
+  , capitalize
+  , capitalizeFirst
+  , dropSpace
+  , fillText
+  , onLines
+  , mapLines
+  , lines'
+  , unlines'
+  , padLeft
+  , padRight
+  ) where
 
 import Data.List.Split
 import Data.List (isSuffixOf, intercalate)

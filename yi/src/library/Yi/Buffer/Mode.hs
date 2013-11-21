@@ -137,13 +137,8 @@ where
 
 import Prelude (drop)
 import Yi.Prelude
-import Yi.Region
+
 import System.FilePath
-import Yi.Buffer.Implementation
-import Yi.Syntax
-import Yi.Buffer.Undo
-import Yi.Dynamic
-import Yi.Window
 import Control.Monad.RWS.Strict hiding (mapM_, mapM, get, put, forM_, forM)
 import Data.Accessor.Template
 import Data.Binary
@@ -153,11 +148,17 @@ import Data.List (length)
 import qualified Data.Map as M
 import Data.Maybe
 import {-# source #-} Yi.Keymap
-import Yi.Interact as I
-import Yi.Buffer.Basic
 import Data.Time
 import Numeric(showHex)
 import Data.Char(ord)
+
+import Yi.Buffer.Implementation
+import Yi.Syntax
+import Yi.Buffer.Undo
+import Yi.Dynamic
+import Yi.Window
+import Yi.Interact as I
+import Yi.Buffer.Basic
 
 #ifdef TESTING
 -- TODO: make this compile.

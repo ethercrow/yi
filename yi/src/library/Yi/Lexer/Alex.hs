@@ -24,10 +24,12 @@ module Yi.Lexer.Alex (
                        alexGetByte
                       ) where
 
-import Yi.Syntax hiding (mkHighlighter)
-import Yi.Prelude
 import Prelude ()
-import Yi.Region
+import Yi.Prelude
+
+import Yi.Syntax hiding (mkHighlighter)
+import Yi.Buffer.Basic
+
 import Data.Ord (comparing)
 import Data.Ix
 import Data.Word (Word8)

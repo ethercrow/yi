@@ -20,14 +20,15 @@ module Yi.Syntax
   ) 
 where
 
+import Prelude ()
+import Yi.Prelude
+
 import qualified  Data.Map as M
 import Control.Arrow
-import Yi.Style
-import Yi.Prelude
-import Prelude ()
 import Data.List (takeWhile)
+
 import Yi.Buffer.Basic
-import Yi.Region
+import Yi.Style
 
 type Length = Int                   -- size in #codepoints
 

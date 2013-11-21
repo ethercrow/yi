@@ -65,6 +65,7 @@ module Data.Traversable,
 module Text.Show,
 module Yi.Debug,
 module Yi.Monad,
+module Yi.String,
 nubSet,
 null,
 print,
@@ -87,6 +88,7 @@ writeFile -- because Data.Derive uses it.
 import Prelude hiding (any, all)
 import Yi.Debug
 import Yi.Monad
+import Yi.String
 import Text.Show
 import Data.Bool
 import Data.Binary
