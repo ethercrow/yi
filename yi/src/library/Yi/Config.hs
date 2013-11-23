@@ -7,7 +7,7 @@ import Data.Accessor.Template
 
 import Yi.Buffer
 import Yi.Layout
-import Yi.Config.Misc
+import Yi.Editor.ScrollStyle
 import {-# source #-} Yi.Keymap
 import {-# source #-} Yi.Editor
 import Yi.Dynamic(ConfigVariables)

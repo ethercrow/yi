@@ -75,6 +75,8 @@ import Yi.Buffer
 import Yi.Config
 import Yi.Dynamic
 import Yi.Editor
+import Yi.Editor.BufferWindowCommunication
+import Yi.Editor.ScrollStyle
 import Yi.Keymap
 import Yi.Keymap.Keys
 import Yi.KillRing (krEndCmd)
@@ -83,7 +85,7 @@ import Yi.Process (popen, createSubprocess, readAvailable, SubprocessId, Subproc
 import Yi.String
 import Yi.Style (errorStyle, strongHintStyle)
 import qualified Yi.UI.Common as UI
-import Yi.Window (dummyWindow, bufkey, winRegion)
+import Yi.Window
 import {-# source #-} Yi.PersistentState(loadPersistentState, savePersistentState)
 
 -- | Make an action suitable for an interactive run.
@@ -230,7 +232,7 @@ checkFileChanges e0 = do
                    if b ^. lastSyncTimeA < modTime
                       then if isUnchangedBuffer b
                         then do newContents <- R.readFile fname
-                                return (snd $ runBuffer (dummyWindow $ bkey b) b (revertB newContents now), Just msg1)
+                                return (snd $ runBufferWithDefaultView b (revertB newContents now), Just msg1)
                         else return (b, Just msg2)
                       else nothing
                 _ -> nothing
@@ -267,15 +269,36 @@ focusAllSyntax e6 = buffersA ^: fmap (\b -> focusSyntax (regions b) b) $ e6
 pureM :: Monad m => (a -> b) -> a -> m b
 pureM f = return . f
 
+
+-- TODO: Move somewhere appropriate
+-- | Move the visible region to include the point
+snapScreenB :: Window -> Region -> Maybe ScrollStyle -> BufferM Bool
+snapScreenB w wr style = do
+    inWin <- pointInWindowB wr =<< pointB
+    if inWin
+    then return False
+    else do
+        let h = actualLines w
+        p <- pointB
+        let gap = case style of
+              Just SingleLine -> case pointScreenRelPosition p (regionStart wr) (regionEnd wr) of
+                                   Above  -> 0
+                                   Below  -> h - 1
+                                   Within -> 0 -- Impossible but handle it anyway
+              _               -> h `div` 2
+        i <- indexOfSolAbove gap
+        setFromMarkPointB i
+        return True
+
 -- | Redraw
 refreshEditor :: YiM ()
 refreshEditor = onYiVar $ \yi var -> do
         let cfg = yiConfig yi
             runOnWins a = runEditor cfg
                                     (do ws <- getA windowsA
-                                        forM ws $ flip withWindowE a)
+                                        forM ws $ \w -> withWindowE w $ a w)
             style = configScrollStyle $ configUI cfg
-        let scroll e3 = let (e4, relayout) = runOnWins (snapScreenB style) e3 in
+        let scroll e3 = let (e4, relayout) = runOnWins (\w -> snapScreenB w (winRegion w) style) e3 in
                 -- Scroll windows to show current points as appropriate
                 -- Do another layout pass if there was any scrolling;
                 (if or relayout then UI.layout (yiUi yi) else return) e4
@@ -287,17 +310,16 @@ refreshEditor = onYiVar $ \yi var -> do
              UI.layout (yiUi yi) >>=
              scroll >>=
              -- Adjust point according to the current layout;
-             pureM (fst . runOnWins snapInsB) >>=
+             pureM (fst . runOnWins (snapInsB . winRegion)) >>=
              pureM focusAllSyntax >>=
              -- Clear "pending updates" and "followUp" from buffers.
-             pureM (buffersA ^: fmap (clearUpdates . clearFollow))
+             pureM (buffersA ^: fmap clearUpdates)
         -- Display the new state of the editor
         UI.refresh (yiUi yi) e7
         -- Terminate stale processes.
         terminateSubprocesses (staleProcess $ buffers e7) yi var {yiEditor = e7}
   where
     clearUpdates = pendingUpdatesA ^= []
-    clearFollow = pointFollowsWindowA ^= const False
     -- | Is this process stale? (associated with a deleted buffer)
     staleProcess bs p = not (bufRef p `M.member` bs)
     

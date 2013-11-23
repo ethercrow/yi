@@ -85,9 +85,9 @@ import Yi.Boot
 --import Yi.Buffer.Mode hiding(modifyMode)
 import Yi.Core hiding(modifyMode, (%=))
 import Yi.Config.Default
-import Yi.Config.Misc
 import Yi.Config.Simple.Types
 import Yi.Dired
+import Yi.Editor.ScrollStyle
 import Yi.Eval
 import Yi.File
 import Yi.Layout

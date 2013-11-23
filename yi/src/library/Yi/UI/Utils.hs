@@ -12,7 +12,6 @@ import Yi.Style
 import Data.List (zip, repeat, span, dropWhile, length, zipWith, transpose, scanl, take, intercalate, takeWhile, reverse)
 import Yi.Syntax (Span(..))
 import Data.List.Split (chunksOf)
-import Yi.String (padLeft)
 import Control.Monad.State (runState,modify)
 
 indexedAnnotatedStreamB :: Point -> BufferM [(Point, Char)]

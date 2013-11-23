@@ -8,66 +8,71 @@
 
 module Yi.Editor where
 
+import Prelude ()
+import Yi.Prelude
+
 import Control.Monad.RWS hiding (get, put, mapM, forM_)
 import Data.Accessor.Basic (fromSetGet)
 import Data.Accessor.Template
 import Data.Binary
 import Data.DeriveTH
 import Data.Either (rights)
-import Data.List (nub, delete, (\\), (!!), intercalate, take, drop, cycle)
+import qualified Data.HashMap.Strict as HM
+import Data.List (map, filter, length, reverse, nub, delete, (\\), (!!), intercalate, take, drop, cycle)
+import qualified Data.Map as M
 import Data.Maybe
 import Data.Typeable
-import Prelude (map, filter, length, reverse)
 import System.FilePath (splitPath)
-import Yi.Buffer
-import Yi.Config
-import Yi.Dynamic
-import Yi.Event (Event)
-import Yi.Interact as I
-import Yi.JumpList
-import Yi.KillRing
-import Yi.Layout
-import Yi.Prelude
-import Yi.Style (StyleName, defaultStyle)
-import Yi.Tab
-import Yi.Window
+
 import qualified Data.Rope as R
 import qualified Data.DelayList as DelayList
 import qualified Data.List.PointedList as PL (atEnd, moveTo)
 import qualified Data.List.PointedList.Circular as PL
-import qualified Data.Map as M
+
+import Yi.Buffer
+import Yi.Config
+import Yi.Dynamic
+import Yi.Editor.BufferWindowCommunication
+import Yi.Event (Event)
+import Yi.Interact as I
+import Yi.JumpList
 import {-# source #-} Yi.Keymap (extractTopKeymap)
+import Yi.KillRing
+import Yi.Layout
+import Yi.Style (StyleName, defaultStyle)
+import Yi.Tab
+import Yi.Window
+
 
 type Status = ([String],StyleName)
 type Statuses = DelayList.DelayList Status
 
 -- | The Editor state
 data Editor = Editor {
-        bufferStack   :: ![BufferRef]               -- ^ Stack of all the buffers. 
-                                                    -- Invariant: never empty
-                                                    -- Invariant: first buffer is the current one.
-       ,buffers       :: !(M.Map BufferRef FBuffer)
-       ,refSupply     :: !Int  -- ^ Supply for buffer, window and tab ids.
-
-       ,tabs_          :: !(PL.PointedList Tab) -- ^ current tab contains the visible windows pointed list.
-
-       ,dynamic       :: !DynamicValues              -- ^ dynamic components
-
-       ,statusLines   :: !Statuses
-       ,maxStatusHeight :: !Int
-       ,killring      :: !Killring
-       ,currentRegex         :: !(Maybe SearchExp) -- ^ currently highlighted regex (also most recent regex for use in vim bindings)
-       ,searchDirection :: !Direction
-       ,pendingEvents :: ![Event]                   -- ^ Processed events that didn't yield any action yet.
-       ,onCloseActions :: !(M.Map BufferRef (EditorM ())) -- ^ Actions to be run when the buffer is closed; should be scrapped.
-    }
-    deriving Typeable
+         bufferStack     :: ![BufferRef] -- ^ Stack of all the buffers. 
+                                         -- Invariant: never empty
+                                         -- Invariant: first buffer is the current one.
+       , buffers         :: !(M.Map BufferRef FBuffer)
+       , views           :: !(HM.HashMap (WindowRef, BufferRef) BufferView)
+       , refSupply       :: !Int -- ^ Supply for buffer, window and tab ids.
+       , tabs_           :: !(PL.PointedList Tab) -- ^ current tab contains the visible windows pointed list.
+       , dynamic         :: !DynamicValues              -- ^ dynamic components
+       , statusLines     :: !Statuses
+       , maxStatusHeight :: !Int
+       , killring        :: !Killring
+       , currentRegex    :: !(Maybe SearchExp) -- ^ currently highlighted regex (also most recent regex for use in vim bindings)
+       , searchDirection :: !Direction
+       , pendingEvents   :: ![Event]                   -- ^ Processed events that didn't yield any action yet.
+       , onCloseActions  :: !(M.Map BufferRef (EditorM ())) -- ^ Actions to be run when the buffer is closed; should be scrapped.
+    } deriving Typeable
 
 instance Binary Editor where
-    put (Editor bss bs supply ts dv _sl msh kr _re _dir _ev _cwa ) = put bss >> put bs >> put supply >> put ts >> put dv >> put msh >> put kr
+    put (Editor bss bs views supply ts dv _sl msh kr _re _dir _ev _cwa ) =
+      put bss >> put bs >> put supply >> put ts >> put dv >> put msh >> put kr
     get = do
         bss <- get
         bs <- get
+        vs <- get
         supply <- get
         ts <- get
         dv <- get
@@ -75,6 +80,7 @@ instance Binary Editor where
         kr <- get
         return $ emptyEditor {bufferStack = bss,
                               buffers = bs,
+                              views = vs,
                               refSupply = supply,
                               tabs_ = ts,
                               dynamic = dv,
@@ -108,27 +114,30 @@ instance MonadEditor EditorM where
 -- | The initial state
 emptyEditor :: Editor
 emptyEditor = Editor {
-        buffers      = M.singleton (bkey buf) buf
-       ,tabs_        = PL.singleton tab
-       ,bufferStack  = [bkey buf]
-       ,refSupply    = 3
-       ,currentRegex = Nothing
-       ,searchDirection = Forward
-       ,dynamic      = initial
-       ,statusLines  = DelayList.insert (maxBound, ([""], defaultStyle)) []
-       ,killring     = krEmpty
-       ,pendingEvents = []
-       ,maxStatusHeight = 1
-       ,onCloseActions = M.empty
-       }
-        where buf = newB (BufferRef 0) (Left "console") (R.fromString "")
-              win = (dummyWindow (bkey buf)) {wkey = WindowRef 1, isMini = False}
-              tab = makeTab1 2 win
+      buffers      = M.singleton (bkey buf') buf'
+    , views        = HM.singleton (WindowRef 1, bkey buf') bv
+    , tabs_        = PL.singleton tab
+    , bufferStack  = [bkey buf']
+    , refSupply    = 3
+    , currentRegex = Nothing
+    , searchDirection = Forward
+    , dynamic      = initial
+    , statusLines  = DelayList.insert (maxBound, ([""], defaultStyle)) []
+    , killring     = krEmpty
+    , pendingEvents = []
+    , maxStatusHeight = 1
+    , onCloseActions = M.empty
+    }
+    where buf = newB (BufferRef 0) (Left "console") R.empty
+          (buf', bv) = createView buf
+          win = dummyWindow {wkey = WindowRef 1, isMini = False}
+          tab = makeTab1 2 win
+          dummyWindow = Window False (bkey buf') [] 0 emptyRegion initial 0 Nothing
 
 -- ---------------------------------------------------------------------
 
 runEditor :: Config -> EditorM a -> Editor -> (Editor, a)
-runEditor cfg f e = let (a, e',()) = runRWS (fromEditorM f) cfg e in (e',a)
+runEditor cfg f e = let (a, e',()) = runRWS (fromEditorM f) cfg e in (e', a)
 
 $(nameDeriveAccessors ''Editor (\n -> Just (n ++ "A")))
 
@@ -213,10 +222,12 @@ deleteBuffer k = do
   ws <- getA windowsA
   case bs of
       (b0:nextB:_) -> do
-          let pickOther w = if bufkey w == k then w {bufkey = other} else w
+          let pickOther w = if bufkey w == k
+                            then w {bufkey = other}
+                            else w
               visibleBuffers = fmap bufkey $ toList ws
-              other = head $ (bs \\ visibleBuffers) ++ (delete k bs)
-          when (b0 == k) $ do
+              other = head $ (bs \\ visibleBuffers) ++ delete k bs
+          when (b0 == k) $
               -- we delete the currently selected buffer: the next buffer will become active in
               -- the main window, therefore it must be assigned a new window.
               switchToBufferE nextB
@@ -251,9 +262,9 @@ findBuffer k = gets (M.lookup k . buffers)
 -- | Find buffer with this key
 findBufferWith :: BufferRef -> Editor -> FBuffer
 findBufferWith k e = 
-    case M.lookup k (buffers e) of
-        Just b  -> b
-        Nothing -> error "Editor.findBufferWith: no buffer has this key"
+    fromMaybe
+        (error "Editor.findBufferWith: no buffer has this key")
+        (M.lookup k (buffers e))
 
 
 -- | Find buffer with this name
@@ -281,34 +292,54 @@ shiftBuffer :: Int -> EditorM ()
 shiftBuffer shift = do 
     modA bufferStackA rotate
     fixCurrentWindow
-  where rotate l = take len $ drop (shift `mod` len) $ cycle l
-            where len = length l
+  where rotate l = let len = length l
+                   in take len $ drop (shift `mod` len) $ cycle l
 
 ------------------------------------------------------------------------
 -- | Perform action with any given buffer, using the last window that was used for that buffer.
 withGivenBuffer0 :: BufferRef -> BufferM a -> EditorM a
 withGivenBuffer0 k f = do
     b <- gets (findBufferWith k)
+    ws <- getA windowsA
+    bs <- getA bufferStackA
+    withGivenBufferAndWindow0 (fromMaybe
+      (PL._focus ws)
+      (lastActiveWindowForBuffer k ws)) k f
 
-    withGivenBufferAndWindow0 (b ^. lastActiveWindowA) k f
+getOrCreateBufferViewForBufferAndWindow :: Window -> BufferRef -> Editor -> (BufferView, Editor)
+getOrCreateBufferViewForBufferAndWindow w k e =
+    let b = findBufferWith k e
+        mbv = HM.lookup (wkey w, k) (views e)
+    in case mbv of
+        Just bv -> (bv, e)
+        Nothing -> let (b', bv) = createView b
+                   in (bv, e { views = HM.insert (wkey w, k) bv (views e)
+                             , buffers = M.insert k b' (buffers e)
+                             })
+
 
 -- | Perform action with any given buffer
 withGivenBufferAndWindow0 :: Window -> BufferRef -> BufferM a -> EditorM a
 withGivenBufferAndWindow0 w k f = do
   accum <- asks configKillringAccumulate
-  (us, v) <- getsAndModify $ (\e ->
-                            let b = findBufferWith k e
-                                (v, us, b') = runBufferFull w b f
-                                
-                            in (e {buffers = mapAdjust' (const b') k (buffers e),
-                                   killring = (if accum && all updateIsDelete us
-                                               then foldl (.) id 
-                                                    (reverse [krPut dir (R.toString s) | Delete _ dir s <- us])
-                                               else id) 
-                                              (killring e)
-                                  }, (us, v)))
+  (us, v) <- getsAndModify
+      (\e -> let b = findBufferWith k e
+                 mbv = HM.lookup (wkey w, k) (views e)
+                 (bv, views', b') = case mbv of
+                                   Just bv -> (bv, views e, b)
+                                   Nothing -> let (b', bv) = createView b
+                                              in (bv, HM.insert (wkey w, k) bv (views e), b')
+                 (v, us, b'') = runBufferFull bv b' f
+             in (e {buffers = mapAdjust' (const b'') k (buffers e),
+                    views = views',
+                    killring = (if accum && all updateIsDelete us
+                                then foldl (.) id 
+                                     (reverse [krPut dir (R.toString s) | Delete _ dir s <- us])
+                                else id) 
+                               (killring e)
+                   }, (us, v)))
   updHandler <- return . bufferUpdateHandler =<< ask
-  unless (null us || null updHandler) $ do
+  unless (null us || null updHandler) $
     forM_ updHandler (\h -> withGivenBufferAndWindow0 w k (h us))
   return v
 
@@ -459,19 +490,21 @@ alternateBufferE n = do
       else switchToBufferE $ lst!!n
 
 -- | Create a new zero size window on a given buffer
-newZeroSizeWindow ::Bool -> BufferRef -> WindowRef -> Window
+newZeroSizeWindow :: Bool -> BufferRef -> WindowRef -> Window
 newZeroSizeWindow mini bk ref = Window mini bk [] 0 emptyRegion ref 0 Nothing
 
 -- | Create a new window onto the given buffer.
 newWindowE :: Bool -> BufferRef -> EditorM Window
-newWindowE mini bk = newZeroSizeWindow mini bk . WindowRef <$> newRef
+newWindowE mini bk = do
+    wr <- WindowRef <$> newRef
+    return $! newZeroSizeWindow mini bk wr
 
 -- | Attach the specified buffer to the current window
 switchToBufferE :: BufferRef -> EditorM ()
-switchToBufferE bk = do
+switchToBufferE bk =
     modA (focusA . windowsA) (\w ->
-           w { bufkey = bk, 
-               bufAccessList = forceFold1 $ ((bufkey w):) . filter (bk/=) $ bufAccessList w })
+           w { bufkey = bk,
+               bufAccessList = forceFold1 $ (bufkey w :) . filter (bk /=) $ bufAccessList w })
 
 -- | Attach the specified buffer to some other window than the current one
 switchToBufferOtherWindowE :: BufferRef -> EditorM ()

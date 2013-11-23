@@ -106,7 +106,6 @@ library
     Yi.Completion
     Yi.Config
     Yi.Config.Default
-    Yi.Config.Misc
     Yi.Config.Simple
     Yi.Config.Simple.Types
     Yi.Core
@@ -114,6 +113,8 @@ library
     Yi.Dired
     Yi.Dynamic
     Yi.Editor
+    Yi.Editor.BufferWindowCommunication
+    Yi.Editor.ScrollStyle
     Yi.Eval
     Yi.Event
     Yi.File

@@ -14,6 +14,7 @@ import qualified Data.Rope as R
 
 import Yi.Buffer hiding (Insert)
 import Yi.Editor
+import Yi.Editor.BufferWindowCommunication
 import Yi.Event
 import Yi.History
 import Yi.Keymap.Keys
@@ -218,8 +219,8 @@ nonrepeatableBindings = fmap (mkBindingE Normal Drop)
     -- Search
     , (char '*', addJumpHereE >> searchWordE True Forward, resetCount)
     , (char '#', addJumpHereE >> searchWordE True Backward, resetCount)
-    , (char 'n', addJumpHereE >> (withCount $ continueSearching id), resetCount)
-    , (char 'N', addJumpHereE >> (withCount $ continueSearching reverseDir), resetCount)
+    , (char 'n', addJumpHereE >> withCount (continueSearching id), resetCount)
+    , (char 'N', addJumpHereE >> withCount (continueSearching reverseDir), resetCount)
     , (char ';', repeatGotoCharE id, id)
     , (char ',', repeatGotoCharE reverseDir, id)
 
@@ -239,12 +240,12 @@ nonrepeatableBindings = fmap (mkBindingE Normal Drop)
     , (ctrlCh 'r', withCountOnBuffer0 redoB >> withBuffer0 leftOnEol, id)
 
     -- scrolling
-    ,(ctrlCh 'b', getCountE >>= withBuffer0 . upScreensB, id)
-    ,(ctrlCh 'f', getCountE >>= withBuffer0 . downScreensB, id)
-    ,(ctrlCh 'u', getCountE >>= withBuffer0 . vimScrollByB (negate . (`div` 2)), id)
-    ,(ctrlCh 'd', getCountE >>= withBuffer0 . vimScrollByB (`div` 2), id)
-    ,(ctrlCh 'y', getCountE >>= withBuffer0 . vimScrollB . negate, id)
-    ,(ctrlCh 'e', getCountE >>= withBuffer0 . vimScrollB, id)
+    , (ctrlCh 'b', getCountE >>= withBuffer0 . upScreensB (error "nmap b"), id)
+    , (ctrlCh 'f', getCountE >>= withBuffer0 . downScreensB (error "nmap f"), id)
+    , (ctrlCh 'u', getCountE >>= withBuffer0 . vimScrollByB (error "nmap u") (negate . (`div` 2)), id)
+    , (ctrlCh 'd', getCountE >>= withBuffer0 . vimScrollByB (error "nmap d") (`div` 2), id)
+    , (ctrlCh 'y', getCountE >>= withBuffer0 . vimScrollB, id)
+    , (ctrlCh 'e', getCountE >>= withBuffer0 . vimScrollB, id)
 
     -- unsorted TODO
     , (char '-', return (), id)

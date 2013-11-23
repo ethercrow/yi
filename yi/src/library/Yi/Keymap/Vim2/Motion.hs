@@ -55,7 +55,7 @@ import Yi.Keymap.Vim2.StyledRegion
 data Move = Move {
     moveStyle :: !RegionStyle
   , moveIsJump :: !Bool
-  , moveAction :: (Maybe Int -> BufferM ())
+  , moveAction :: Maybe Int -> BufferM ()
   }
 
 data CountedMove = CountedMove !(Maybe Int) !Move
@@ -92,10 +92,6 @@ linewiseMotions = fmap withDefaultCount
                 when (n > 1) $ discard $ lineMoveRel (n - 1)
                 firstNonSpaceB)
     , ("gg", True, discard . gotoLn) -- TODO: save column
-    , ("<C-b>", False, scrollScreensB . negate)
-    , ("<PageUp>", False, scrollScreensB . negate)
-    , ("<C-f>", False, scrollScreensB)
-    , ("<PageDown>", False, scrollScreensB)
     ]
     ++ [("G", True, gotoXOrEOF)]
 

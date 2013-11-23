@@ -8,8 +8,9 @@
 
 module Yi.UI.Vty (start) where
 
+import Prelude ()
 import Yi.Prelude hiding ((<|>))
-import Prelude (map, take, zip, repeat, length, break, splitAt)
+
 import Control.Arrow
 import Control.Concurrent
 import Control.Exception
@@ -18,7 +19,7 @@ import Control.Monad.State (runState, get, put)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Char (ord,chr)
 import Data.IORef
-import Data.List (partition, sort, nub)
+import Data.List (map, take, zip, repeat, length, break, splitAt, partition, sort, nub)
 import qualified Data.List.PointedList.Circular as PL
 import Data.Maybe
 import Data.Monoid
@@ -26,18 +27,19 @@ import System.Exit
 import System.Posix.Signals (raiseSignal, sigTSTP)
 import System.Posix.Terminal
 import System.Posix.IO (stdInput)
+import Graphics.Vty as Vty hiding (refresh, Default)
+import qualified Graphics.Vty as Vty
+
 import Yi.Buffer
 import Yi.Editor
+import Yi.Editor.BufferWindowCommunication
 import Yi.Event
 import Yi.Style
 import qualified Yi.UI.Common as Common
 import Yi.Config
 import Yi.Window
 import qualified Yi.Style as Style
-import Graphics.Vty as Vty hiding (refresh, Default)
-import qualified Graphics.Vty as Vty
 import Yi.Keymap (makeAction, YiM)
-
 import Yi.UI.Utils
 import Yi.UI.TabBar
 
@@ -204,7 +206,7 @@ layout ui e = do
 layoutAction :: (MonadEditor m, MonadIO m) => UI -> m ()
 layoutAction ui = do
     withEditor . put =<< io . layout ui =<< withEditor get
-    withEditor $ mapM_ (flip withWindowE snapInsB) =<< getA windowsA
+    withEditor $ mapM_ (\w -> withWindowE w $ snapInsB (error "vty wr")) =<< getA windowsA
 
 requestRefresh :: UI -> Editor -> IO ()
 requestRefresh ui e = do
@@ -297,6 +299,8 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
     where
         b = findBufferWith (bufkey win) e
         sty = configStyle cfg
+        (bv, e') = getOrCreateBufferViewForBufferAndWindow win (bufkey win) e
+        runBuffer' = runBuffer bv b
         
         notMini = not (isMini win)
         -- off reserves space for the mode line. The mini window does not have a mode line.
@@ -305,25 +309,24 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         ground = baseAttributes sty
         wsty = attributesToAttr ground Vty.def_attr
         eofsty = appEndo (eofStyle sty) ground
-        (point, _) = runBuffer win b pointB
-        (eofPoint, _) = runBuffer win b lastB
+        (point, _) = runBuffer' pointB
+        (eofPoint, _) = runBuffer' lastB
         region = mkSizeRegion fromMarkPoint (Size (w*h'))
         -- Work around a problem with the mini window never displaying it's contents due to a
         -- fromMark that is always equal to the end of the buffer contents.
-        (Just (MarkSet fromM _ _), _) = runBuffer win b (getMarks win)
         fromMarkPoint = if notMini
-                            then fst $ runBuffer win b (getMarkPointB fromM)
+                            then fst $ runBuffer' getFromMarkPointB
                             else Point 0
-        (text, _)    = runBuffer win b (indexedAnnotatedStreamB fromMarkPoint) -- read chars from the buffer, lazily
+        (text, _)    = runBuffer' (indexedAnnotatedStreamB fromMarkPoint) -- read chars from the buffer, lazily
         
-        (attributes, _) = runBuffer win b $ attributesPictureAndSelB sty (currentRegex e) region 
+        (attributes, _) = runBuffer' $ attributesPictureAndSelB sty (currentRegex e') region 
         -- TODO: I suspect that this costs quite a lot of CPU in the "dry run" which determines the window size;
         -- In that case, since attributes are also useless there, it might help to replace the call by a dummy value.
         -- This is also approximately valid of the call to "indexedAnnotatedStreamB".
         colors = map (second (($ Vty.def_attr) . attributesToAttr)) attributes
         bufData = -- trace (unlines (map show text) ++ unlines (map show $ concat strokes)) $ 
                   paintChars Vty.def_attr colors text
-        tabWidth = tabSize . fst $ runBuffer win b indentSettingsB
+        tabWidth = tabSize . fst $ runBuffer' indentSettingsB
         prompt = if isMini win then miniIdentString b else ""
 
         (rendered,toMarkPoint',cur,dispLnCount) = drawText h' w
@@ -332,9 +335,9 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
                                 tabWidth
                                 ([(c,(wsty, Point (-1))) | c <- prompt] ++ bufData ++ [(' ',(wsty, eofPoint))])
                              -- we always add one character which can be used to position the cursor at the end of file
-        (modeLine0, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
+        (modeLine0, _) = runBuffer' $ getModeLine (commonNamePrefix e')
         modeLine = if notMini then Just modeLine0 else Nothing
-        modeLines = map (withAttributes modeStyle . take w . (++ repeat ' ')) $ maybeToList $ modeLine
+        modeLines = map (withAttributes modeStyle . take w . (++ repeat ' ')) $ maybeToList modeLine
         modeStyle = (if focused then appEndo (modelineFocusStyle sty) else id) (modelineAttributes sty)
         filler = take w (configWindowFill cfg : repeat ' ')
     

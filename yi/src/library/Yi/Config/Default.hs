@@ -5,20 +5,22 @@ module Yi.Config.Default (defaultConfig, availableFrontends,
                           defaultEmacsConfig, defaultVimConfig, defaultCuaConfig,
                           toVim2StyleConfig, toEmacsStyleConfig, toCuaStyleConfig) where
 
+import Prelude ()
+
 import Control.Monad (forever)
 import Data.Either (rights)
-import Paths_yi
-import Prelude ()
 import System.Directory
 import System.FilePath
 import System.IO (readFile)
+
+import Paths_yi
 import Yi.Command (cabalBuildE, cabalConfigureE, grepFind, makeBuild, reloadProjectE, searchSources, shell)
 import Yi.Reload
 import Yi.Config
-import Yi.Config.Misc
-import Yi.Paths(getConfigFilename)
+import Yi.Paths (getConfigFilename)
 import Yi.Core
-import Yi.Eval(publishedActions)
+import Yi.Editor.ScrollStyle
+import Yi.Eval (publishedActions)
 import Yi.File
 import Yi.IReader (saveAsNewArticle)
 import Yi.Mode.IReader (ireaderMode, ireadMode)

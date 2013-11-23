@@ -5,7 +5,6 @@ module Yi.Syntax.Strokes.Haskell (getStrokes, tokenToAnnot) where
 import Prelude ()
 import Yi.Prelude
 
-import Data.Maybe
 import Data.Monoid (Endo(..), appEndo, mappend)
 
 import Yi.Lexer.Alex

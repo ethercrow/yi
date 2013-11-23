@@ -54,6 +54,7 @@ import Control.Monad.Trans (MonadIO (..))
 import Control.Monad (filterM, replicateM_)
 import Yi.Command (cabalConfigureE, cabalBuildE, reloadProjectE)
 import Yi.Core
+import Yi.Editor.BufferWindowCommunication
 import Yi.Eval
 import Yi.File
 import Yi.MiniBuffer
@@ -259,12 +260,12 @@ findFileNewTab = promptFile "find file (new tab): " $ \filename -> do
 
 scrollDownE :: UnivArgument -> BufferM ()
 scrollDownE a = case a of
-                 Nothing -> downScreenB
+                 Nothing -> downScreenB (error "Y.E.U.scrollDownE")
                  Just n -> scrollB n
 
 scrollUpE :: UnivArgument -> BufferM ()
 scrollUpE a = case a of
-                 Nothing -> upScreenB
+                 Nothing -> upScreenB (error "Y.E.U.scrollUpE")
                  Just n -> scrollB (negate n)
 
 switchBufferE :: YiM ()

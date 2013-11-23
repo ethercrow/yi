@@ -1,4 +1,11 @@
-{-# LANGUAGE StandaloneDeriving, DeriveDataTypeable, ScopedTypeVariables, ExistentialQuantification, GeneralizedNewtypeDeriving, MultiParamTypeClasses, TemplateHaskell #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 -- Copyright 2008 JP Bernardy
 -- | Basic types useful everywhere we play with buffers.
 module Yi.Buffer.Basic where
@@ -8,6 +15,7 @@ import Yi.Prelude
 
 import Data.Binary    
 import Data.DeriveTH
+import Data.Hashable
 import Data.Ix
 
 import qualified Data.Rope as R
@@ -40,7 +48,7 @@ newtype Mark = Mark {markId :: Int} deriving (Eq, Ord, Show, Typeable, Binary)
 
 -- | Reference to a buffer.
 newtype BufferRef = BufferRef Int
-    deriving (Eq, Ord, Typeable, Binary)
+    deriving (Eq, Ord, Typeable, Binary, Hashable)
 
 instance Show BufferRef where
     show (BufferRef r) = "B#" ++ show r
@@ -64,11 +72,20 @@ instance SemiNum Point Size where
 fromString :: String -> Rope
 fromString = R.fromString
 
--- | Window references
+-- XXX: delete WindowRef
 newtype WindowRef = WindowRef { unWindowRef :: Int }
-  deriving(Eq, Ord, Enum, Show, Typeable, Binary)
+  deriving (Eq, Ord, Enum, Show, Typeable, Binary, Hashable)
 
-instance Initializable WindowRef where initial = WindowRef (-1)
+instance Initializable WindowRef where
+  initial = WindowRef (-1)
+
+data BufferView = BufferView {
+    fromMark :: !Mark
+  , insMark :: !Mark
+  , selMark :: !Mark
+  } deriving (Show, Eq)
+
+$(derive makeBinary ''BufferView)
 
 -- | The region data type. 
 --The region is semi open: it includes the start but not the end bound. This allows simpler region-manipulation algorithms.
@@ -151,4 +168,4 @@ regionsOverlap border (Region _ x1 y1) (Region _ x2 y2) =
     cmp x2 y1 y2 || cmp x2 x1 y2 ||
     cmp x1 y2 y1 || cmp x1 x2 y1
   where
-    cmp a b c = a <= b && if border then b <=c  else b < c
+    cmp a b c = a <= b && if border then b <= c else b < c

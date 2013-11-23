@@ -1,19 +1,20 @@
-{-# LANGUAGE TemplateHaskell, CPP, GeneralizedNewtypeDeriving, DeriveDataTypeable, StandaloneDeriving, ExistentialQuantification, Rank2Types, TypeSynonymInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 
 -- Copyright (C) 2004, 2007 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (C) 2007, 2008 JP Bernardy
 
--- | The 'Buffer' module defines monadic editing operations over one-dimensional
--- buffers, maintaining a current /point/.
-
 module Yi.Buffer.Mode
   ( FBuffer (FBuffer, bmode)
   , BufferM (..)
-  , WinMarks, MarkSet (..)
   , bkey
-  , wkey
-  , winMarksA
-  , getMarks
   , curLn
   , curCol
   , colOf
@@ -82,9 +83,7 @@ module Yi.Buffer.Mode
   , rectangleSelectionA
   , readOnlyA
   , insertingA
-  , pointFollowsWindowA
   , revertPendingUpdatesB
-  , askWindow
   , clearSyntax
   , focusSyntax
   , Mode (..)
@@ -119,9 +118,7 @@ module Yi.Buffer.Mode
   , streamB
   , indexedStreamB
   , getMarkPointB
-  , askMarks
   , SearchExp
-  , lastActiveWindowA
   , bufferDynamicValueA
   , shortIdentString
   , identString
@@ -132,6 +129,13 @@ module Yi.Buffer.Mode
   , lastSyncTimeA
   , startUpdateTransactionB
   , commitUpdateTransactionB
+  , setCurrentViewB
+  , currentViewB
+  , createView
+  , setSelectionMarkPointB
+  , getSelectionMarkPointB
+  , setFromMarkPointB
+  , getFromMarkPointB
   )
 where
 
@@ -142,7 +146,6 @@ import System.FilePath
 import Control.Monad.RWS.Strict hiding (mapM_, mapM, get, put, forM_, forM)
 import Data.Accessor.Template
 import Data.Binary
-import Data.DeriveTH
 import qualified Data.Rope as R
 import Data.List (length)
 import qualified Data.Map as M
@@ -156,45 +159,12 @@ import Yi.Buffer.Implementation
 import Yi.Syntax
 import Yi.Buffer.Undo
 import Yi.Dynamic
-import Yi.Window
 import Yi.Interact as I
 import Yi.Buffer.Basic
-
-#ifdef TESTING
--- TODO: make this compile.
-
--- import Test.QuickCheck
--- import Driver ()
-
--- instance Arbitrary FBuffer where
---     arbitrary = do b0 <- return (newB 0 "*buffername*") `ap` (LazyUTF8.fromString `fmap` arbitrary)
---                    p0 <- arbitrary
---                    return $ snd $ runBuffer (dummyWindow $ bkey b0) b0 (moveTo $ Point p0)
-
--- prop_replace_point b = snd $ runBufferDummyWindow b $ do
---   p0 <- pointB
---   replaceRegionB r
---   p1 <- pointB
---   return $ (p1 - p0) == ...
-#endif
 
 -- In addition to Buffer's text, this manages (among others):
 --  * Log of updates mades
 --  * Undo
-
-type WinMarks = MarkSet Mark
-
-data MarkSet a = MarkSet { fromMark, insMark, selMark :: !a }
-
-instance Traversable MarkSet where
-    traverse f (MarkSet a b c) = MarkSet <$> f a <*> f b <*> f c
-instance Foldable MarkSet where
-    foldMap = foldMapDefault
-instance Functor MarkSet where
-    fmap = fmapDefault
-
-$(derive makeBinary ''MarkSet)
-
 
 data SelectionStyle = SelectionStyle
   { highlightSelection :: !Bool
@@ -219,12 +189,9 @@ data Attributes = Attributes
                 , pendingUpdates :: ![UIUpdate]    -- ^ updates that haven't been synched in the UI yet
                 , selectionStyle :: !SelectionStyle
                 , process :: !KeymapProcess
-                , winMarks :: !(M.Map WindowRef WinMarks)
-                , lastActiveWindow :: !Window
                 , lastSyncTime :: !UTCTime -- ^ time of the last synchronization with disk
                 , readOnly :: !Bool                -- ^ read-only flag
                 , inserting :: !Bool -- ^ the keymap is ready for insertion into this buffer
-                , pointFollowsWindow :: !(WindowRef -> Bool)
                 , updateTransactionInFlight :: !Bool
                 , updateTransactionAccum :: ![Update]
                 } deriving Typeable
@@ -232,14 +199,14 @@ data Attributes = Attributes
 $(nameDeriveAccessors ''Attributes (\n -> Just (n ++ "AA")))
 
 instance Binary Attributes where
-    put (Attributes n b u bd pc pu selectionStyle_ _proc wm law lst ro ins _pfw
+    put (Attributes n b u bd pc pu selectionStyle_ _proc lst ro ins
         isTransacPresent transacAccum) = do
           put n >> put b >> put u >> put bd
-          put pc >> put pu >> put selectionStyle_ >> put wm
-          put law >> put lst >> put ro >> put ins >> put isTransacPresent >> put transacAccum
+          put pc >> put pu >> put selectionStyle_
+          put lst >> put ro >> put ins >> put isTransacPresent >> put transacAccum
     get = Attributes <$> get <*> get <*> get <*> 
-          get <*> get <*> get <*> get <*> pure I.End <*> get <*> get <*> get <*> get <*>
-              get <*> pure (const False) <*> get <*> get
+          get <*> get <*> get <*> get <*> pure I.End <*> get <*> get <*>
+              get <*> get <*> get
 
 instance Binary UTCTime where
     put (UTCTime x y) = put (fromEnum x) >> put (fromEnum y)
@@ -309,10 +276,6 @@ queryAndModifyRawbuf f (FBuffer f1 f5 f3) =
 attrsA :: Accessor FBuffer Attributes
 attrsA = accessor attributes (\a e -> case e of FBuffer f1 f2 _ -> FBuffer f1 f2 a)
 
--- | Use in readonly!
-lastActiveWindowA :: Accessor FBuffer Window
-lastActiveWindowA = lastActiveWindowAA . attrsA
-
 lastSyncTimeA :: Accessor FBuffer UTCTime
 lastSyncTimeA = lastSyncTimeAA . attrsA
 
@@ -325,16 +288,13 @@ readOnlyA = readOnlyAA . attrsA
 insertingA :: Accessor FBuffer Bool
 insertingA = insertingAA . attrsA
 
-pointFollowsWindowA :: Accessor FBuffer (WindowRef -> Bool)
-pointFollowsWindowA = pointFollowsWindowAA . attrsA
-
 updateTransactionInFlightA :: Accessor FBuffer Bool
 updateTransactionInFlightA = updateTransactionInFlightAA . attrsA
 
 updateTransactionAccumA :: Accessor FBuffer [Update]
 updateTransactionAccumA = updateTransactionAccumAA . attrsA
 
-file :: FBuffer -> (Maybe FilePath)
+file :: FBuffer -> Maybe FilePath
 file b = case b ^. identA of
     Right f -> Just f
     _ -> Nothing
@@ -369,9 +329,6 @@ rectangleSelectionA =
 
 keymapProcessA :: Accessor FBuffer KeymapProcess
 keymapProcessA = processAA . attrsA
-
-winMarksA :: Accessor FBuffer (M.Map WindowRef WinMarks)
-winMarksA = winMarksAA . attrsA
 
 {- | Currently duplicates some of Vim's indent settings. Allowing a buffer to
  - specify settings that are more dynamic, perhaps via closures, could be
@@ -434,8 +391,8 @@ data IndentBehaviour =
 
 
 -- | The BufferM monad writes the updates performed.
-newtype BufferM a = BufferM { fromBufferM :: RWS Window [Update] FBuffer a }
-    deriving (Monad, Functor, MonadWriter [Update], MonadState FBuffer, MonadReader Window, Typeable)
+newtype BufferM a = BufferM { fromBufferM :: RWS () [Update] FBuffer a }
+    deriving (Monad, Functor, MonadWriter [Update], MonadState FBuffer, Typeable)
 
 -- deriving instance Typeable4 RWS
 
@@ -523,15 +480,7 @@ delOverlayB ov = do
   modifyBuffer $ delOverlayBI ov
 
 delOverlayLayerB :: OvlLayer -> BufferM ()
-delOverlayLayerB l = do
-  modifyBuffer $ delOverlayLayer l
-
-
-getMarks :: Window -> BufferM (Maybe WinMarks)
-getMarks w = do
-    getsA winMarksA (M.lookup $ wkey w) 
- 
-
+delOverlayLayerB l = modifyBuffer $ delOverlayLayer l
 
 getMarkValueB :: Mark -> BufferM MarkValue
 getMarkValueB m = fromMaybe (MarkValue (Point 0) Forward) <$> queryBuffer (getMarkValueBI m)
@@ -650,12 +599,9 @@ newB unique nm s =
             , pendingUpdates = []
             , selectionStyle = SelectionStyle False False
             , process = I.End
-            , winMarks = M.empty
-            , lastActiveWindow = dummyWindow unique
             , lastSyncTime = epoch
             , readOnly = False
             , inserting = True
-            , pointFollowsWindow = const False
             , updateTransactionInFlight = False
             , updateTransactionAccum = []
             } }
@@ -837,12 +783,12 @@ withModeB f = do
     act <- gets (withMode0 f)
     act
            
-withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> WindowRef -> FBuffer -> a
-withSyntax0 f wk (FBuffer bm rb _attrs) = f bm (getAst wk rb)
+withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> FBuffer -> a
+withSyntax0 f (FBuffer bm rb _attrs) = f bm (getAst rb)
 
 
 withSyntaxB :: (forall syntax. Mode syntax -> syntax -> a) -> BufferM a
-withSyntaxB f = withSyntax0 f <$> askWindow wkey <*> getA id
+withSyntaxB f = withSyntax0 f <$> getA id
 
 
 focusSyntax ::  M.Map WindowRef Region -> FBuffer -> FBuffer
@@ -886,12 +832,13 @@ setVisibleSelection :: Bool -> BufferM ()
 setVisibleSelection = putA highlightSelectionA
 
 getInsMark :: BufferM Mark
-getInsMark = insMark <$> askMarks
+getInsMark = queryBuffer $ insMark . head . views
 
-askMarks :: BufferM WinMarks
-askMarks = do
-    Just ms <- getMarks =<< ask
-    return ms
+currentViewB :: BufferM BufferView
+currentViewB = queryBuffer $ head . views
+
+setCurrentViewB :: BufferView -> BufferM ()
+setCurrentViewB bv = modifyBuffer $ setCurrentViewBI bv
 
 getMarkB :: Maybe String -> BufferM Mark
 getMarkB m = do
@@ -989,11 +936,22 @@ bufferDynamicValueA = dynamicValueA . bufferDynamicA
 getMarkPointB :: Mark -> BufferM Point
 getMarkPointB m = markPoint <$> getMarkValueB m
 
+-- | Set the current buffer selection mark
+setSelectionMarkPointB :: Point -> BufferM ()
+setSelectionMarkPointB p = modifyBuffer $ setSelectionMarkPointBI p
 
--------------
--- Window
+-- | Get the current buffer selection mark
+getSelectionMarkPointB :: BufferM Point
+getSelectionMarkPointB = queryBuffer getSelectionMarkPointBI
 
-askWindow :: (Window -> a) -> BufferM a
-askWindow = asks
+getFromMarkPointB :: BufferM Point
+getFromMarkPointB = queryBuffer getFromMarkPointBI
+
+setFromMarkPointB :: Point -> BufferM ()
+setFromMarkPointB p = modifyBuffer $ setFromMarkPointBI p
+
+createView :: FBuffer -> (FBuffer, BufferView)
+createView (FBuffer mode raw attrs) = (FBuffer mode raw' attrs, bv)
+    where (raw', bv) = createViewBI raw
 
 $(nameDeriveAccessors ''Mode (\n -> Just (n ++ "A")))

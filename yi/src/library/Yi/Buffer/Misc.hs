@@ -10,7 +10,6 @@ module Yi.Buffer.Misc
   , lineDown
   , lineMoveRel
   , lineUp
-  , markLines
   , moveToColB
   , moveToLineColB
   , movingToPrefCol
@@ -65,11 +64,6 @@ savingExcursionB f = do
     res <- f
     moveTo =<< getMarkPointB m
     return res
-
--- | Return line numbers of marks
-markLines :: BufferM (MarkSet Int)
-markLines = mapM getLn =<< askMarks
-        where getLn m = getMarkPointB m >>= lineOf
 
 replaceCharWithBelowB :: BufferM ()
 replaceCharWithBelowB = replaceCharWithVerticalOffset 1

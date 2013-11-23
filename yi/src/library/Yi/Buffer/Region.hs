@@ -15,7 +15,6 @@ module Yi.Buffer.Region
   , mapRegionB
   , modifyRegionB
   , modifyRegionClever
-  , winRegionB
   , inclusiveRegionB
   , blockifyRegion
   , joinLinesB
@@ -32,10 +31,6 @@ import Data.List (filter, length, sort, dropWhile)
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
 import Yi.Buffer.Mode
-import Yi.Window (winRegion)
-
-winRegionB :: BufferM Region
-winRegionB = askWindow winRegion
 
 -- | Delete an arbitrary part of the buffer
 deleteRegionB :: Region -> BufferM ()

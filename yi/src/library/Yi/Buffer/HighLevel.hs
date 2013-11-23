@@ -4,7 +4,6 @@ module Yi.Buffer.HighLevel where
 import Prelude (FilePath)
 import Yi.Prelude
 
-import Control.Monad.RWS.Strict (ask)
 import Control.Monad.State hiding (forM, forM_, sequence_)
 
 import Data.Char
@@ -21,8 +20,7 @@ import Yi.Buffer.Misc
 import Yi.Buffer.Mode
 import Yi.Buffer.Normal
 import Yi.Buffer.Region
-import Yi.Window
-import Yi.Config.Misc (ScrollStyle(SingleLine))
+import Yi.Editor.ScrollStyle (ScrollStyle(SingleLine))
 
 -- ---------------------------------------------------------------------
 -- Movement operations
@@ -310,14 +308,6 @@ deleteTrailingSpaceB = modifyRegionClever deleteSpaces =<< regionOfB Document
 -- ----------------------------------------------------
 -- | Marks
 
--- | Set the current buffer selection mark
-setSelectionMarkPointB :: Point -> BufferM ()
-setSelectionMarkPointB p = flip setMarkPointB p =<< selMark <$> askMarks
-
--- | Get the current buffer selection mark
-getSelectionMarkPointB :: BufferM Point
-getSelectionMarkPointB = getMarkPointB =<< selMark <$> askMarks
-
 -- | Exchange point & mark.
 exchangePointAndMarkB :: BufferM ()
 exchangePointAndMarkB = do m <- getSelectionMarkPointB
@@ -361,89 +351,6 @@ bufInfoB = do
                                  }
     return bufInfo
 
------------------------------
--- Window-related operations
-
-upScreensB :: Int -> BufferM ()
-upScreensB = scrollScreensB . negate
-
-downScreensB :: Int -> BufferM ()
-downScreensB = scrollScreensB
-
--- | Scroll up 1 screen
-upScreenB :: BufferM ()
-upScreenB = scrollScreensB (-1)
-
--- | Scroll down 1 screen
-downScreenB :: BufferM ()
-downScreenB = scrollScreensB 1
-
--- | Scroll by n screens (negative for up)
-scrollScreensB :: Int -> BufferM ()
-scrollScreensB n = do
-    h <- askWindow height
-    scrollB $ n * max 0 (h - 3) -- subtract some amount to get some overlap (emacs-like).
-
--- | Scroll according to function passed. The function takes the
--- | Window height in lines, its result is passed to scrollB
--- | (negative for up)
-scrollByB :: (Int -> Int) -> Int -> BufferM ()
-scrollByB f n = do h <- askWindow height
-                   scrollB $ n * f h
-
--- | Same as scrollB, but also moves the cursor
-vimScrollB :: Int -> BufferM ()
-vimScrollB n = do scrollB n
-                  discard $ lineMoveRel n
-
--- | Same as scrollByB, but also moves the cursor
-vimScrollByB :: (Int -> Int) -> Int -> BufferM ()
-vimScrollByB f n = do h <- askWindow height
-                      vimScrollB $ n * f h
-
--- | Move to middle line in screen
-scrollToCursorB :: BufferM ()
-scrollToCursorB = do
-    MarkSet f i _ <- markLines
-    h <- askWindow height
-    let m = f + (h `div` 2)
-    scrollB $ i - m
-
--- | Move cursor to the top of the screen
-scrollCursorToTopB :: BufferM ()
-scrollCursorToTopB = do
-    MarkSet f i _ <- markLines
-    scrollB $ i - f
-
--- | Move cursor to the bottom of the screen
-scrollCursorToBottomB :: BufferM ()
-scrollCursorToBottomB = do
-    MarkSet _ i _ <- markLines
-    r <- winRegionB
-    t <- lineOf (regionEnd r -~ 1)
-    scrollB $ i - t
-
--- | Scroll by n lines.
-scrollB :: Int -> BufferM ()
-scrollB n = do
-  MarkSet fr _ _ <- askMarks
-  savingPointB $ do
-    moveTo =<< getMarkPointB fr
-    discard $ gotoLnFrom n
-    setMarkPointB fr =<< pointB
-  w <- askWindow wkey
-  modA pointFollowsWindowA (\old w' -> if w == w' then True else old w')
-
--- | Move the point to inside the viewable region
-snapInsB :: BufferM ()
-snapInsB = do
-    movePoint <- getA pointFollowsWindowA
-    w <- askWindow wkey
-    when (movePoint w) $ do
-        r <- winRegionB
-        p <- pointB
-        moveTo $ max (regionStart r) $ min (regionEnd r) $ p
-
 -- | return index of Sol on line @n@ above current line
 indexOfSolAbove :: Int -> BufferM Point
 indexOfSolAbove n = pointAt $ gotoLnFrom (negate n)
@@ -460,55 +367,6 @@ pointScreenRelPosition p rs re
   | p > re = Below
 pointScreenRelPosition _ _ _ = Within -- just to disable the non-exhaustive pattern match warning
 
--- | Move the visible region to include the point
-snapScreenB :: Maybe ScrollStyle ->BufferM Bool
-snapScreenB style = do
-    movePoint <- getA pointFollowsWindowA
-    w <- askWindow wkey
-    if movePoint w then return False else do
-        inWin <- pointInWindowB =<< pointB
-        if inWin then return False else do
-            h <- askWindow actualLines
-            r <- winRegionB
-            p <- pointB
-            let gap = case style of
-                        Just SingleLine -> case pointScreenRelPosition p (regionStart r) (regionEnd r) of
-                                             Above  -> 0
-                                             Below  -> h - 1
-                                             Within -> 0 -- Impossible but handle it anyway
-                        _               -> h `div` 2
-            i <- indexOfSolAbove gap
-            f <- fromMark <$> askMarks
-            setMarkPointB f i
-            return True
-
-
--- | Move to @n@ lines down from top of screen
-downFromTosB :: Int -> BufferM ()
-downFromTosB n = do
-  moveTo =<< getMarkPointB =<< fromMark <$> askMarks
-  replicateM_ n lineDown
-
--- | Move to @n@ lines up from the bottom of the screen
-upFromBosB :: Int -> BufferM ()
-upFromBosB n = do
-  r <- winRegionB
-  moveTo (regionEnd r -~ 1)
-  moveToSol
-  replicateM_ n lineUp
-
--- | Move to middle line in screen
-middleB :: BufferM ()
-middleB = do
-  w <- ask
-  f <- fromMark <$> askMarks
-  moveTo =<< getMarkPointB f
-  replicateM_ (height w `div` 2) lineDown
-
-pointInWindowB :: Point -> BufferM Bool
-pointInWindowB p = nearRegion p <$> winRegionB
---  do w <- winRegionB;  trace ("pointInWindowB " ++ show w ++ " p = " ++ show p)
-          
 -----------------------------
 -- Region-related operations
 

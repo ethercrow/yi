@@ -7,7 +7,7 @@ import Yi.Prelude
 
 import Data.Char (isDigit)
 import Data.List (isPrefixOf, drop)
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Maybe (fromMaybe, fromJust, maybe)
 
 import Yi.Buffer hiding (Insert)
 import Yi.Editor
@@ -34,7 +34,7 @@ textObject operators = VimBindingE prereq action
 
             let partial = vsTextObjectAccumulator currentState
                 opChar = lastCharForOperator op
-                op = fromJust $ stringToOperator operators opname
+                op = maybe (error "Error123") id (stringToOperator operators opname) 
                 (NormalOperatorPending opname) = vsMode currentState
 
             -- vim treats cw as ce

@@ -1,4 +1,11 @@
-{-# LANGUAGE PatternGuards, ExistentialQuantification, DeriveDataTypeable, Rank2Types, FlexibleContexts, FlexibleInstances, TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 -- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2007-8 JP Bernardy
 
@@ -12,6 +19,13 @@ module Yi.Buffer.Implementation
   , Size
   , Direction (..)
   , BufferImpl
+  , views
+  , setCurrentViewBI
+  , createViewBI
+  , setSelectionMarkPointBI
+  , getSelectionMarkPointBI
+  , setFromMarkPointBI
+  , getFromMarkPointBI
   , Overlay, OvlLayer (..)
   , mkOverlay
   , overlayUpdate
@@ -51,7 +65,7 @@ import Yi.Prelude
 import Data.Array
 import Data.Binary
 import Data.DeriveTH
-import Data.List (groupBy, zip, takeWhile)
+import Data.List (groupBy, zip, takeWhile, nub)
 import qualified Data.Map as M
 import Data.Maybe 
 import Data.Monoid
@@ -93,6 +107,7 @@ data BufferImpl syntax =
         FBufferData { mem        :: !Rope          -- ^ buffer text
                     , marks      :: !Marks                 -- ^ Marks for this buffer
                     , markNames  :: !(M.Map String Mark)
+                    , views      :: ![BufferView]
                     , hlCache    :: !(HLState syntax)       -- ^ syntax highlighting state
                     , overlays   :: !(Set.Set Overlay) -- ^ set of (non overlapping) visual overlay regions
                     , dirtyOffset :: !Point -- ^ Lowest modified offset since last recomputation of syntax 
@@ -106,10 +121,8 @@ dummyHlState = (HLState noHighlighter (hlStartState noHighlighter))
 -- Atm we can't store overlays because stylenames are functions (can't be serialized)
 -- TODO: ideally I'd like to get rid of overlays entirely; although we could imagine them storing mere styles.
 instance Binary (BufferImpl ()) where
-    put b = put (mem b) >> put (marks b) >> put (markNames b)
-    get = pure FBufferData <*> get <*> get <*> get <*> pure dummyHlState <*> pure Set.empty <*> pure (Point 0)
-    
-    
+    put b = put (mem b) >> put (marks b) >> put (markNames b) >> put (views b)
+    get = FBufferData <$> get <*> get <*> get <*> get <*> pure dummyHlState <*> pure Set.empty <*> pure (Point 0)
 
 -- | Mutation actions (also used the undo or redo list)
 --
@@ -149,7 +162,7 @@ $(derive makeBinary ''UIUpdate)
 
 -- | New FBuffer filled from string.
 newBI :: Rope -> BufferImpl ()
-newBI s = FBufferData s M.empty M.empty dummyHlState Set.empty (Point 0)
+newBI s = FBufferData s M.empty M.empty [] dummyHlState Set.empty (Point 0)
 
 -- | read @n@ bytes from buffer @b@, starting at @i@
 readChunk :: Rope -> Size -> Point -> Rope
@@ -266,12 +279,13 @@ isValidUpdate u b = case u of
                     (Insert p _ _)   -> check p
     where check (Point x) = x >= 0 && x <= F.length (mem b)
 
-
 -- | Apply a /valid/ update
 applyUpdateI :: Update -> BufferImpl syntax -> BufferImpl syntax
 applyUpdateI u fb = touchSyntax (updatePoint u) $ 
-                    fb {mem = p', marks = M.map shift (marks fb),
-                                   overlays = Set.map (mapOvlMarks shift) (overlays fb)}
+                    fb { mem = p'
+                       , marks = M.map shift (marks fb)
+                       , overlays = Set.map (mapOvlMarks shift) (overlays fb)
+                       }
                                    -- FIXME: this is inefficient; find a way to use mapMonotonic
                                    -- (problem is that marks can have different gravities)
     where (p', amount) = case u of
@@ -333,6 +347,38 @@ newMarkBI initialValue fb =
 getMarkValueBI :: Mark -> BufferImpl syntax -> Maybe MarkValue
 getMarkValueBI m (FBufferData { marks = marksMap } ) = M.lookup m marksMap
 
+setCurrentViewBI :: BufferView -> BufferImpl syntax -> BufferImpl syntax
+setCurrentViewBI bv fb =
+    if bv `elem` views fb
+    then fb { views = nub (bv : views fb) }
+    else error "setCurrentViewBI with unknown view"
+
+createViewBI :: BufferImpl syntax -> (BufferImpl syntax, BufferView)
+createViewBI b @ FBufferData { marks = oldMarks } =
+    (b { views = v : views b, marks = newMarks }, v)
+    where v = BufferView m1 m2 m3
+          [m1, m2, m3] = map (Mark . (+ maxMarkId)) [1, 2, 3]
+          maxMarkId = if M.null oldMarks then 1 else max 1 (markId $ fst (M.findMax oldMarks))
+          newMarks = M.union oldMarks $
+                     M.fromList $
+                     map (, MarkValue (Point 0) Forward) [m1, m2, m3]
+
+setSelectionMarkPointBI :: Point -> BufferImpl syntax -> BufferImpl syntax
+setSelectionMarkPointBI p b = modifyMarkBI mark (\(MarkValue _ g) -> MarkValue p g) b
+    where mark = selMark . head . views $ b
+
+setFromMarkPointBI :: Point -> BufferImpl syntax -> BufferImpl syntax
+setFromMarkPointBI p b = modifyMarkBI mark (\(MarkValue _ g) -> MarkValue p g) b
+    where mark = fromMark . head . views $ b
+
+getSelectionMarkPointBI :: BufferImpl syntax -> Point
+getSelectionMarkPointBI b =
+    markPoint . fromJust . flip getMarkValueBI b . selMark . head . views $ b
+
+getFromMarkPointBI :: BufferImpl syntax -> Point
+getFromMarkPointBI b =
+    markPoint . fromJust . flip getMarkValueBI b . fromMark . head . views $ b
+
 deleteMarkValueBI :: Mark -> BufferImpl syntax -> BufferImpl syntax
 deleteMarkValueBI m fb = fb { marks = M.delete m (marks fb) }
 
@@ -377,8 +423,8 @@ getMarkDefaultPosBI name defaultPos fb@FBufferData {marks = mks, markNames = nms
            in (fb {marks = mks', markNames = nms'}, newMark)
 
 
-getAst :: WindowRef -> BufferImpl syntax -> syntax
-getAst w FBufferData {hlCache = HLState (SynHL {hlGetTree = gt}) cache} = gt cache w
+getAst :: BufferImpl syntax -> syntax
+getAst FBufferData {hlCache = HLState (SynHL {hlGetTree = gt}) cache} = gt cache undefined
 
 focusAst ::  M.Map WindowRef Region -> BufferImpl syntax -> BufferImpl syntax
 focusAst r b@FBufferData {hlCache = HLState s@(SynHL {hlFocus = foc}) cache} = b {hlCache = HLState s (foc r cache)}

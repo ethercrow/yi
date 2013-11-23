@@ -11,18 +11,25 @@ module Yi.Keymap.Emacs (keymap,
                         mkKeymap,
                         defKeymap,
                         ModeMap(..)) where
+
 import Prelude ()
+
+import Control.Monad
+import Data.Char
+import Data.Maybe
+
 import Data.Prototype
 import Yi.Command (shellCommandE)
 import Yi.Core
 import Yi.Dired
+import Yi.Editor.BufferWindowCommunication
 import Yi.File
+import Yi.Keymap.Emacs.KillRing
 import Yi.MiniBuffer
 import Yi.Misc (adjBlock, adjIndent)
+import Yi.Mode.Buffers ( listBuffers )
 import Yi.Rectangle
 import Yi.TextCompletion
-import Yi.Keymap.Emacs.KillRing
-import Yi.Mode.Buffers ( listBuffers )
 import Yi.Keymap.Emacs.Utils
   ( askQuitEditor
   , evalRegionE
@@ -45,10 +52,6 @@ import Yi.Keymap.Emacs.Utils
   , justOneSep
   , joinLinesE
   )
-import Data.Maybe
-import Data.Char
-
-import Control.Monad
 
 data ModeMap = ModeMap { eKeymap :: Keymap
                        , completionCaseSensitive :: Bool
@@ -112,8 +115,8 @@ emacsKeys univArg =
          , spec KRight          ?>>! (repeatingArg rightB)
          , spec KUp             ?>>! (repeatingArg $ moveB VLine Backward)
          , spec KDown           ?>>! (repeatingArg $ moveB VLine Forward)
-         , spec KPageDown       ?>>! (repeatingArg downScreenB)
-         , spec KPageUp         ?>>! (repeatingArg upScreenB)
+         , spec KPageDown       ?>>! (repeatingArg $ downScreenB (error "emacs pagedown"))
+         , spec KPageUp         ?>>! (repeatingArg $ upScreenB (error "emacs pageup"))
 
          , shift (spec KUp)     ?>>! (repeatingArg (scrollB (-1)))
          , shift (spec KDown)   ?>>! (repeatingArg (scrollB 1))
@@ -141,7 +144,7 @@ emacsKeys univArg =
          , ctrlCh 'i'           ?>>! (adjIndent IncreaseOnly)
          , ctrlCh 'j'           ?>>! newlineAndIndentB
          , ctrlCh 'k'           ?>>! killLineE univArg
-         , ctrlCh 'l'           ?>>! (withBuffer scrollToCursorB >> userForceRefresh)
+         , ctrlCh 'l'           ?>>! (withBuffer (scrollToCursorB (error "emacs map <C-l>")) >> userForceRefresh)
          , ctrlCh 'm'           ?>>! (repeatingArg $ insertB '\n')
          , ctrlCh 'n'           ?>>! (repeatingArg $ moveB VLine Forward)
          , ctrlCh 'o'           ?>>! (repeatingArg (insertB '\n' >> leftB))
