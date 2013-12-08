@@ -14,10 +14,10 @@ import Yi.Syntax (Span(..))
 import Data.List.Split (chunksOf)
 import Control.Monad.State (runState,modify)
 
-indexedAnnotatedStreamB :: Point -> BufferM [(Point, Char)]
-indexedAnnotatedStreamB p = do
+indexedAnnotatedStreamB :: Point -> WindowRef -> BufferM [(Point, Char)]
+indexedAnnotatedStreamB p wk = do
     text <- indexedStreamB Forward p
-    annots <- withSyntaxB modeGetAnnotations
+    annots <- withSyntaxB modeGetAnnotations wk
     return $ spliceAnnots text (dropWhile (\s -> spanEnd s < p) (annots p))
        
 applyHeights :: Traversable t => [Int] -> t Window -> t Window
@@ -64,15 +64,16 @@ paintStrokes f0 x0 lf@((pf,f):tf) lx@((px,x):tx) =
 paintPicture :: a -> [[Span (Endo a)]] -> [(Point,a)]
 paintPicture a = foldr (paintStrokes id a . strokePicture) []
 
-attributesPictureB :: UIStyle -> Maybe SearchExp -> Region -> [[Span StyleName]] -> BufferM [(Point,Attributes)]
-attributesPictureB sty mexp region extraLayers =
+attributesPictureB :: UIStyle -> Maybe SearchExp -> Region -> WindowRef -> [[Span StyleName]]
+  -> BufferM [(Point,Attributes)]
+attributesPictureB sty mexp region wk extraLayers =
   paintPicture (baseAttributes sty) <$>
     fmap (fmap (fmap ($ sty))) <$>
     (extraLayers ++) <$>
-    strokesRangesB mexp region
+    strokesRangesB mexp region wk
 
-attributesPictureAndSelB :: UIStyle -> Maybe SearchExp -> Region -> BufferM [(Point,Attributes)]
-attributesPictureAndSelB sty mexp region = do
+attributesPictureAndSelB :: UIStyle -> Maybe SearchExp -> Region -> WindowRef -> BufferM [(Point,Attributes)]
+attributesPictureAndSelB sty mexp region wk = do
     selReg <- getSelectRegionB
     showSel <- getA highlightSelectionA
     rectSel <- getA rectangleSelectionA
@@ -80,7 +81,7 @@ attributesPictureAndSelB sty mexp region = do
         extraLayers | rectSel && showSel = (:[]) . fmap styliseReg <$> blockifyRegion selReg
                     | showSel            = return [[styliseReg selReg]]
                     | otherwise          = return []
-    attributesPictureB sty mexp region =<< extraLayers
+    attributesPictureB sty mexp region wk =<< extraLayers
 
 
 -- | Arrange a list of items in columns over maximum @maxNumberOfLines@ lines

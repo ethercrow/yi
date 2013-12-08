@@ -317,9 +317,11 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         fromMarkPoint = if notMini
                             then fst $ runBuffer' getFromMarkPointB
                             else Point 0
-        (text, _)    = runBuffer' (indexedAnnotatedStreamB fromMarkPoint) -- read chars from the buffer, lazily
+
+        -- read chars from the buffer, lazily
+        (text, _) = runBuffer' (indexedAnnotatedStreamB fromMarkPoint (wkey win))
         
-        (attributes, _) = runBuffer' $ attributesPictureAndSelB sty (currentRegex e') region 
+        (attributes, _) = runBuffer' $ attributesPictureAndSelB sty (currentRegex e') region (wkey win)
         -- TODO: I suspect that this costs quite a lot of CPU in the "dry run" which determines the window size;
         -- In that case, since attributes are also useless there, it might help to replace the call by a dummy value.
         -- This is also approximately valid of the call to "indexedAnnotatedStreamB".

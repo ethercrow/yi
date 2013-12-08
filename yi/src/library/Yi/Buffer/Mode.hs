@@ -631,10 +631,10 @@ streamB dir i = queryBuffer (getStream dir i)
 indexedStreamB :: Direction -> Point -> BufferM [(Point,Char)]
 indexedStreamB dir i = queryBuffer (getIndexedStream dir i)
 
-strokesRangesB :: Maybe SearchExp -> Region -> BufferM [[Stroke]]
-strokesRangesB regex r = do
+strokesRangesB :: Maybe SearchExp -> Region -> WindowRef -> BufferM [[Stroke]]
+strokesRangesB regex r wk = do
     p <- pointB
-    getStrokes <- withSyntaxB modeGetStrokes
+    getStrokes <- withSyntaxB modeGetStrokes wk
     queryBuffer $ strokesRangesBI getStrokes regex r p
 
 ------------------------------------------------------------------------
@@ -783,19 +783,19 @@ withModeB f = do
     act <- gets (withMode0 f)
     act
            
-withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> FBuffer -> a
-withSyntax0 f (FBuffer bm rb _attrs) = f bm (getAst rb)
+withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> WindowRef -> FBuffer -> a
+withSyntax0 f wk (FBuffer bm rb _attrs) = f bm (getAst wk rb)
 
 
-withSyntaxB :: (forall syntax. Mode syntax -> syntax -> a) -> BufferM a
-withSyntaxB f = withSyntax0 f <$> getA id
+withSyntaxB :: (forall syntax. Mode syntax -> syntax -> a) -> WindowRef -> BufferM a
+withSyntaxB f wk = withSyntax0 f wk <$> getA id
 
 
 focusSyntax ::  M.Map WindowRef Region -> FBuffer -> FBuffer
 focusSyntax r = modifyRawbuf (focusAst r)
 
-withSyntaxB' :: (forall syntax. Mode syntax -> syntax -> BufferM a) -> BufferM a
-withSyntaxB' f = join $ withSyntaxB f
+withSyntaxB' :: (forall syntax. Mode syntax -> syntax -> BufferM a) -> WindowRef -> BufferM a
+withSyntaxB' f wk = join $ withSyntaxB f wk
 
 -- | Return indices of strings in buffer matched by regex in the
 -- given region.

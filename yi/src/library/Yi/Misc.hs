@@ -115,13 +115,13 @@ matchingFileNames start s = do
 
   return results
 
-adjBlock :: Int -> BufferM ()
+adjBlock :: Int -> WindowRef -> BufferM ()
 adjBlock x = withSyntaxB' (\m s -> modeAdjustBlock m s x)
 
 -- | A simple wrapper to adjust the current indentation using
 -- the mode specific indentation function but according to the
 -- given indent behaviour.
-adjIndent :: IndentBehaviour -> BufferM ()
+adjIndent :: IndentBehaviour -> WindowRef -> BufferM ()
 adjIndent ib = withSyntaxB' (\m s -> modeIndent m s ib)
 
 

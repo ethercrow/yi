@@ -79,7 +79,7 @@ selfInsertKeymap univArg condition = do
   c <- printableChar
   when (not . condition $ c) empty
   let n = argToInt univArg
-  write (adjBlock n >> replicateM_ n (insertB c))
+  write (adjBlock n (error "Emacs.selfInsertKeymap") >> replicateM_ n (insertB c))
 
 completionKm :: Bool -> Keymap
 completionKm caseSensitive = do discard $ some ((meta (char '/') ?>>! wordComplete' caseSensitive))
@@ -97,17 +97,17 @@ selectAll ::BufferM()
 selectAll =  botB >> placeMark >> topB >> setVisibleSelection True
 
 deleteB' :: BufferM ()
-deleteB' = adjBlock (-1) >> deleteN 1
+deleteB' = adjBlock (-1) (error "Emacs.deleteB'") >> deleteN 1
 
 emacsKeys :: Maybe Int -> Keymap
 emacsKeys univArg = 
   choice [ -- First all the special key bindings
-           spec KTab            ?>>! (adjIndent IncreaseCycle)
-         , (shift $ spec KTab)  ?>>! (adjIndent DecreaseCycle)
+           spec KTab            ?>>! (adjIndent IncreaseCycle (error "Emacs"))
+         , (shift $ spec KTab)  ?>>! (adjIndent DecreaseCycle (error "Emacs"))
          , spec KEnter          ?>>! (repeatingArg $ insertB '\n')
          , spec KDel            ?>>! (repeatingArg (blockKillring >> deleteB'))
          , spec KBS             ?>>! (repeatingArg (blockKillring >>
-                                                    adjBlock (-1) >> 
+                                                    adjBlock (-1) (error "Emacs.<BS>") >> 
                                                     bdeleteB))
          , spec KHome           ?>>! (repeatingArg moveToSol)
          , spec KEnd            ?>>! (repeatingArg moveToEol)
@@ -141,7 +141,7 @@ emacsKeys univArg =
          , ctrlCh 'f'           ?>>! (repeatingArg rightB)
          , ctrlCh 'g'           ?>>! (setVisibleSelection False)               
          , ctrlCh 'h'           ?>> char 'b' ?>>! acceptedInputs               
-         , ctrlCh 'i'           ?>>! (adjIndent IncreaseOnly)
+         , ctrlCh 'i'           ?>>! (adjIndent IncreaseOnly (error "Emacs.C-i"))
          , ctrlCh 'j'           ?>>! newlineAndIndentB
          , ctrlCh 'k'           ?>>! killLineE univArg
          , ctrlCh 'l'           ?>>! (withBuffer (scrollToCursorB (error "emacs map <C-l>")) >> userForceRefresh)

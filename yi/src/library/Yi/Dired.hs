@@ -549,15 +549,15 @@ diredUnmark = bypassReadOnly $ do
                   Just (fn, _de) -> do modA bufferDynamicValueA (\ds -> ds {diredMarks = M.delete fn $ diredMarks ds})
                                        filenameColOf lineUp
                                        diredRefreshMark
-                  Nothing        -> do filenameColOf lineUp
+                  Nothing        -> filenameColOf lineUp
 
 
 diredUnmarkPath :: FilePath -> BufferM()
-diredUnmarkPath fn = do modA bufferDynamicValueA (\ds -> ds {diredMarks = M.delete fn $ diredMarks ds})
+diredUnmarkPath fn = modA bufferDynamicValueA (\ds -> ds {diredMarks = M.delete fn $ diredMarks ds})
 
 diredUnmarkAll :: BufferM ()
 diredUnmarkAll = bypassReadOnly $ do
-                   modA bufferDynamicValueA (\ds -> ds {diredMarks = const M.empty $ diredMarks ds})
+                   modA bufferDynamicValueA (\ds -> ds {diredMarks = M.empty})
                    filenameColOf $ return ()
                    diredRefreshMark
 

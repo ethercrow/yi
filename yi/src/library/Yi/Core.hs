@@ -47,6 +47,7 @@ where
 
 import Prelude (realToFrac)
 
+import Control.Arrow ((&&&))
 import Control.Concurrent
 import Control.Monad (forever)
 import Control.Monad.Error ()
@@ -461,8 +462,8 @@ waitForExit ph =
 
 withSyntax :: (Show x, YiAction a x) => (forall syntax. Mode syntax -> syntax -> a) -> YiM ()
 withSyntax f = do
-            b <- gets currentBuffer
-            act <- withGivenBuffer b $ withSyntaxB f
+            (b, wk) <- gets $ currentBuffer &&& (wkey . (^. currentWindowA))
+            act <- withGivenBuffer b $ withSyntaxB f wk
             runAction $ makeAction act
 
 userForceRefresh :: YiM ()

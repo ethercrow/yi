@@ -57,7 +57,7 @@ replaceSel s = do
   if hasSel
     then getSelectRegionB >>= flip replaceRegionB s
     else do
-      when (length s == 1) (adjBlock 1)
+      when (length s == 1) (adjBlock 1 (error "Cua.replaceSel"))
       insertN s
 
 deleteSel :: BufferM () -> YiM ()
@@ -65,7 +65,7 @@ deleteSel act = do
   haveSelection <- withBuffer $ getA highlightSelectionA
   if haveSelection
     then withEditor del
-    else withBuffer (adjBlock (-1) >> act)
+    else withBuffer (adjBlock (-1) (error "deleteSel") >> act)
 
 cut, del, copy, paste :: EditorM ()
 cut = copy >> del
