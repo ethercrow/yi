@@ -351,7 +351,8 @@ setCurrentViewBI :: BufferView -> BufferImpl syntax -> BufferImpl syntax
 setCurrentViewBI bv fb =
     if bv `elem` views fb
     then fb { views = nub (bv : views fb) }
-    else error "setCurrentViewBI with unknown view"
+    else error $ "setCurrentViewBI with unknown view " ++ show bv ++
+                 ", buffer has only these: " ++ show (views fb)
 
 createViewBI :: BufferImpl syntax -> (BufferImpl syntax, BufferView)
 createViewBI b @ FBufferData { marks = oldMarks } =

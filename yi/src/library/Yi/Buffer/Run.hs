@@ -24,8 +24,8 @@ runBuffer bv b f =
 
 runBufferFull :: BufferView -> FBuffer -> BufferM a -> (a, [Update], FBuffer)
 runBufferFull bv b f =
-    let (a, b', updates) = runRWS (fromBufferM f') () b
-        f' = setCurrentViewB bv >> f
+    let f' = setCurrentViewB bv >> f
+        (a, b', updates) = runRWS (fromBufferM f') () b
     in (a, updates, pendingUpdatesA ^: (++ fmap TextUpdate updates) $ b')
 
 runBufferWithDefaultView :: FBuffer -> BufferM a -> (a, FBuffer)

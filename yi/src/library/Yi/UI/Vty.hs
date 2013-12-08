@@ -297,9 +297,9 @@ renderWindow cfg e width (win,hasFocus) =
 drawWindow :: UIConfig -> Editor -> Bool -> Window -> Int -> Int -> (Rendered, Region, Int)
 drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkRegion fromMarkPoint toMarkPoint', dispLnCount)
     where
-        b = findBufferWith (bufkey win) e
         sty = configStyle cfg
         (bv, e') = getOrCreateBufferViewForBufferAndWindow win (bufkey win) e
+        b = findBufferWith (bufkey win) e'
         runBuffer' = runBuffer bv b
         
         notMini = not (isMini win)
