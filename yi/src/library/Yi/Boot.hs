@@ -52,7 +52,6 @@ yiDriver cfg = do
                             , Dyre.realMain     = realMain
                             , Dyre.showError    = showErrorsInConf
                             , Dyre.configDir    = Just Yi.Paths.getConfigDir
-                            , Dyre.hidePackages = ["mtl"]
                             , Dyre.ghcOpts      = (["-threaded", "-O2"] ++
                                                    ["-i" ++ modules] ++
 #ifdef PROFILING
