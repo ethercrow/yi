@@ -150,6 +150,7 @@ defaultConfig =
                         AnyMode Latex.fastMode,
                         AnyMode Abella.abellaModeEmacs,
                         AnyMode cMode,
+                        AnyMode clojureMode,
                         AnyMode objectiveCMode,
                         AnyMode cppMode,
                         AnyMode Haskell.literateMode,

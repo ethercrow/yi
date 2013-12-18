@@ -172,7 +172,7 @@ library
     Yi.Lexer.Cabal
     Yi.Lexer.Compilation
     Yi.Lexer.C
-    Yi.Lexer.ObjectiveC
+    Yi.Lexer.Clojure
     Yi.Lexer.Cplusplus
     Yi.Lexer.Haskell
     Yi.Lexer.JavaScript
@@ -182,6 +182,7 @@ library
     Yi.Lexer.LiterateHaskell
     Yi.Lexer.GitCommit
     Yi.Lexer.GNUMake
+    Yi.Lexer.ObjectiveC
     Yi.Lexer.OCaml
     Yi.Lexer.Ott
     Yi.Lexer.Perl

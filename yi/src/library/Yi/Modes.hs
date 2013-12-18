@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 module Yi.Modes (TokenBasedMode, fundamentalMode,
-                 cMode, objectiveCMode, cppMode, cabalMode,
+                 cMode, objectiveCMode, clojureMode, cppMode, cabalMode,
                  srmcMode, ocamlMode, ottMode, gnuMakeMode,
                  perlMode, pythonMode, javaMode, jsonMode, anyExtension,
                  extensionOrContentsMatch, linearSyntaxMode,
@@ -27,6 +27,7 @@ import Yi.MiniBuffer
 import qualified Yi.Lexer.Alex       as Alex
 import qualified Yi.Lexer.Cabal      as Cabal
 import qualified Yi.Lexer.C          as C
+import qualified Yi.Lexer.Clojure    as Clojure
 import qualified Yi.Lexer.ObjectiveC as ObjectiveC
 import qualified Yi.Lexer.Cplusplus  as Cplusplus
 import qualified Yi.Lexer.GNUMake    as GNUMake
@@ -50,7 +51,7 @@ type StyleBasedMode = TokenBasedMode StyleName
 fundamentalMode :: Mode syntax
 svnCommitMode, cMode, objectiveCMode, cppMode, cabalMode,
   srmcMode, ottMode, gnuMakeMode, perlMode, pythonMode,
-  javaMode, jsonMode, rubyMode :: StyleBasedMode
+  javaMode, jsonMode, rubyMode, clojureMode :: StyleBasedMode
 ocamlMode :: TokenBasedMode OCaml.Token
 
 fundamentalMode = emptyMode
@@ -170,6 +171,12 @@ jsonMode = (linearSyntaxMode JSON.initState JSON.alexScanToken id)
   {
     modeName = "json",
     modeApplies = anyExtension ["json"]
+  }
+
+clojureMode = (linearSyntaxMode Clojure.initState Clojure.alexScanToken id)
+  {
+    modeName = "clojure",
+    modeApplies = anyExtension ["clj", "cljs"]
   }
 
 isMakefile :: FilePath -> String -> Bool

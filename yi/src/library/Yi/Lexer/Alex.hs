@@ -12,7 +12,8 @@ module Yi.Lexer.Alex (
                        alexCollectChar,
 
                        -- * Lexer actions
-                       actionConst, actionAndModify, actionStringAndModify, actionStringConst,
+                       actionConst, actionAndModify, actionAndModify',
+                       actionStringAndModify, actionStringConst,
 
                        -- * Data produced by the scanner
                        Tok(..), tokBegin, tokEnd, tokFromT, tokRegion,
@@ -124,6 +125,10 @@ actionConst token _str state = (state, token)
 -- | Return a constant token, and modify the lexer state
 actionAndModify :: (lexState -> lexState) -> token -> Action lexState token
 actionAndModify modifierFct token _str state = (modifierFct state, token)
+
+-- | Return a token depending on lexer state, and modify the lexer state
+actionAndModify' :: (lexState -> lexState) -> (lexState -> token) -> Action lexState token
+actionAndModify' modifierFct tokenFun _str state = (modifierFct state, tokenFun state)
 
 -- | Convert the parsed string into a token,
 --   and also modify the lexer state
