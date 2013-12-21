@@ -25,7 +25,8 @@ module Data.Rope (
    toString, toReverseString,
  
    -- * List-like functions
-   null, empty, take, drop,  length, reverse, countNewLines,
+   null, empty, singleton, take, drop,
+   length, reverse, countNewLines,
 
    split, splitAt, splitAtLine,
 
@@ -49,10 +50,11 @@ import qualified Data.ByteString.Lazy as LB (toChunks, fromChunks, null, readFil
 import qualified Data.ByteString.Lazy.UTF8 as LB 
  
 import qualified Data.FingerTree as T
-import Data.FingerTree hiding (null, empty, reverse, split)
+import Data.FingerTree hiding (null, empty, reverse, split, singleton)
  
 import Data.Binary
 import Data.Char (ord)
+import Data.Function (on)
 import Data.Monoid
 
 import System.IO.Cautious (writeFileL)
@@ -75,7 +77,16 @@ instance Monoid Size where
     mappend (Indices c1 l1) (Indices c2 l2) = Indices (c1+c2) (l1+l2)
  
 newtype Rope = Rope { fromRope :: FingerTree Size Chunk }
-   deriving (Eq, Show)
+
+instance Eq Rope where
+    (==) = (==) `on` toLazyByteString
+
+instance Show Rope where
+    show = show . toLazyByteString
+
+instance Monoid Rope where
+    mempty = empty
+    mappend = append
  
 (-|) :: Chunk -> FingerTree Size Chunk -> FingerTree Size Chunk
 b -| t | chunkSize b == 0 = t
@@ -134,6 +145,9 @@ null (Rope a) = T.null a
  
 empty :: Rope
 empty = Rope T.empty
+
+singleton :: Char -> Rope
+singleton c = fromString [c]
  
 -- | Get the length of the string. (This information cached, so O(1) amortized runtime.)
 length :: Rope -> Int
@@ -146,16 +160,16 @@ countNewLines = lineIndex . measure . fromRope
 -- | Append two strings by merging the two finger trees.
 append :: Rope -> Rope -> Rope
 append (Rope a) (Rope b) = Rope $
-     case T.viewr a of
-       EmptyR -> b
-       l :> (Chunk len x) -> case T.viewl b of
-                   EmptyL  -> a
-                   (Chunk len' x') :< r -> if (fromIntegral len) + (fromIntegral len') < defaultChunkSize
-                                then l >< singleton (Chunk (len + len') (x `B.append` x')) >< r
-                                else a >< b
+    case (T.viewr a, T.viewl b) of
+      (EmptyR, _) -> b
+      (_, EmptyL) -> a
+      (l :> Chunk len1 x1, Chunk len2 x2 :< r) ->
+          if fromIntegral len1 + fromIntegral len2 < defaultChunkSize
+          then l >< T.singleton (Chunk (len1 + len2) (x1 `B.append` x2)) >< r
+          else a >< b
 
 concat :: [Rope] -> Rope
-concat = L.foldl1' append
+concat = L.foldl' append empty
  
 take, drop :: Int -> Rope -> Rope
 take n = fst . splitAt n
