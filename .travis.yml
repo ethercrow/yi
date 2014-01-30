@@ -1,13 +1,15 @@
 matrix:
   allow_failures:
     - env: GHCVER=head
+    - env: GHCVER=head LLVM_CODEGEN=Yes
 
 env:
- - GHCVER=7.6.1
- - GHCVER=7.6.2
  - GHCVER=7.6.3
  - GHCVER=7.8.1
+ - GHCVER=7.6.3 LLVM_CODEGEN=Yes
+ - GHCVER=7.8.1 LLVM_CODEGEN=Yes
  - GHCVER=head
+ - GHCVER=head LLVM_CODEGEN=Yes
  - HPVER=2013.2.0.0
  - HPVER=2012.4.0.0
 
@@ -37,6 +39,12 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install cabal-install-1.18 ghc-$GHCVER
  - export PATH=/opt/ghc/$GHCVER/bin:$PATH
+ - if [ "$LLVM_CODEGEN" = "YES" ] ;
+   then
+      sudo apt-get install llvm ;
+      export LLVM_CABAL_FLAGS="--ghc-option=\"-fllvm\"" ;
+   fi
+
 
 install:
  - cabal-1.18 update
@@ -44,8 +52,8 @@ install:
 
 script:
  - cd yi
- - travis_retry cabal-1.18 install -j2 -fpango --enable-tests -ftesting --only-dependencies
- - cabal-1.18 install -fpango --enable-tests -ftesting
+ - travis_retry cabal-1.18 install -j2 -fpango --enable-tests -ftesting --only-dependencies $LLVM_CABAL_FLAGS
+ - cabal-1.18 install -fpango --enable-tests -ftesting $LLVM_CABAL_FLAGS
  - cd -
  - cd yi-contrib
  - cabal-1.18 install
