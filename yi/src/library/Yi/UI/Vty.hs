@@ -10,19 +10,19 @@ module Yi.UI.Vty (start) where
 
 import Prelude hiding (error,mapM,foldr1,concatMap,mapM_,reverse)
 import Control.Applicative hiding ((<|>))
-import Control.Arrow
 import Control.Monad hiding (mapM,mapM_)
 import Control.Concurrent
 import Control.Exception
 import Control.Monad.State (evalState, get, put)
 import Control.Monad.Base
-import Control.Lens hiding (wrapped,set)
+import Control.Lens hiding (set)
 import Data.Char (ord,chr)
 import Data.IORef
 import Data.List (partition, sort, nub)
 import qualified Data.List.PointedList.Circular as PL
 import Data.Foldable
 import Data.Traversable
+import Data.Tuple (swap)
 import Data.Maybe
 import Data.Monoid
 import System.Exit
@@ -304,26 +304,17 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         off = if notMini then 1 else 0
         h' = h - off
         ground = baseAttributes sty
-        wsty = attributesToAttr ground Vty.def_attr
         eofsty = appEndo (eofStyle sty) ground
         (point, _) = runBuffer win b pointB
         (eofPoint, _) = runBuffer win b sizeB
-        region = mkSizeRegion fromMarkPoint (Size (w*h'))
         -- Work around a problem with the mini window never displaying it's contents due to a
         -- fromMark that is always equal to the end of the buffer contents.
         (Just (MarkSet fromM _ _), _) = runBuffer win b (getMarks win)
         fromMarkPoint = if notMini
                             then fst $ runBuffer win b (getMarkPointB fromM)
                             else Point 0
-        (text, _)    = runBuffer win b (indexedAnnotatedStreamB fromMarkPoint) -- read chars from the buffer, lazily
+        (text, _)    = runBuffer win b (indexedStreamB Forward fromMarkPoint) -- read chars from the buffer, lazily
 
-        (attributes, _) = runBuffer win b $ attributesPictureAndSelB sty (currentRegex e) region
-        -- TODO: I suspect that this costs quite a lot of CPU in the "dry run" which determines the window size;
-        -- In that case, since attributes are also useless there, it might help to replace the call by a dummy value.
-        -- This is also approximately valid of the call to "indexedAnnotatedStreamB".
-        colors = map (second (($ Vty.def_attr) . attributesToAttr)) attributes
-        bufData = -- trace (unlines (map show text) ++ unlines (map show $ concat strokes)) $
-                  paintChars Vty.def_attr colors text
         tabWidth = tabSize . fst $ runBuffer win b indentSettingsB
         prompt = if isMini win then miniIdentString b else ""
 
@@ -331,7 +322,7 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
                                 fromMarkPoint
                                 point
                                 tabWidth
-                                ([(c,(wsty, -1)) | c <- prompt] ++ bufData ++ [(' ',(wsty, eofPoint))])
+                                ([(-1, c) | c <- prompt] ++ text ++ [(eofPoint, ' ')])
                              -- we always add one character which can be used to position the cursor at the end of file
         (modeLine0, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
         modeLine = if notMini then Just modeLine0 else Nothing
@@ -354,7 +345,7 @@ drawText :: Int    -- ^ The height of the part of the window we are in
          -> Point  -- ^ The position of the first character to draw
          -> Point  -- ^ The position of the cursor
          -> Int    -- ^ The number of spaces to represent a tab character with.
-         -> [(Char,(Vty.Attr,Point))]  -- ^ The data to draw.
+         -> [(Point, Char)]  -- ^ The data to draw.
          -> ([Image], Point, Maybe (Int,Int), Int)
 drawText h w topPoint point tabWidth bufData
     | h == 0 || w == 0 = ([], topPoint, Nothing, 0)
@@ -368,41 +359,41 @@ drawText h w topPoint point tabWidth bufData
 
   bottomPoint = case lns0 of
                  [] -> topPoint
-                 _ -> snd $ snd $ last $ last lns0
+                 _ -> fst $ last $ last lns0
 
-  pntpos = listToMaybe [(y,x) | (y,l) <- zip [0..] lns0, (x,(_char,(_attr,p))) <- zip [0..] l, p == point]
+  pntpos = listToMaybe [(y, x) | (y, l) <- zip [0..] lns0
+                               , (x, (p, _char)) <- zip [0..] l
+                               , p == point]
 
   -- fill lines with blanks, so the selection looks ok.
   rendered_lines = map fillColorLine lns0
-  colorChar (c, (a, _aPoint)) = Vty.char a c
 
-  fillColorLine :: [(Char, (Vty.Attr, Point))] -> Image
+  fillColorLine :: [(Point, Char)] -> Image
   fillColorLine [] = char_fill Vty.def_attr ' ' w 1
-  fillColorLine l = horiz_cat (map colorChar l)
+  fillColorLine l = Vty.string Vty.def_attr (map snd l)
                     <|>
-                    char_fill a ' ' (w - length l) 1
-                    where (_,(a,_x)) = last l
+                    char_fill Vty.def_attr ' ' (w - length l) 1
 
   -- | Cut a string in lines separated by a '\n' char. Note
   -- that we add a blank character where the \n was, so the
   -- cursor can be positioned there.
 
-  lines' :: [(Char,a)] -> [[(Char,a)]]
+  lines' :: [(a, Char)] -> [[(a, Char)]]
   lines' [] =  []
   lines' s  = case s' of
                 []          -> [l]
-                ((_,x):s'') -> (l++[(' ',x)]) : lines' s''
+                ((x, _) : s'') -> (l ++ [(x, ' ')]) : lines' s''
               where
-              (l, s') = break ((== '\n') . fst) s
+              (l, s') = break ((== '\n') . snd) s
 
   wrapLine :: Int -> [x] -> [[x]]
   wrapLine _ [] = []
-  wrapLine n l = let (x,rest) = splitAt n l in x : wrapLine n rest
+  wrapLine n l = let (x, rest) = splitAt n l in x : wrapLine n rest
 
-  expandGraphic ('\t', p) = replicate tabWidth (' ', p)
-  expandGraphic (c,p)
-    | ord c < 32 = [('^',p),(chr (ord c + 64),p)]
-    | otherwise = [(c,p)]
+  expandGraphic (p, '\t') = replicate tabWidth (p, ' ')
+  expandGraphic (p, c)
+    | ord c < 32 = [(p, '^'), (p, chr (ord c + 64))]
+    | otherwise = [(p, c)]
 
 withAttributes :: Attributes -> String -> Image
 withAttributes sty = Vty.string (attributesToAttr sty Vty.def_attr)
@@ -459,17 +450,3 @@ attributesToAttr (Attributes fg bg reverse bd _itlc underline') =
     colorToAttr (flip Vty.with_fore_color) fg .
     colorToAttr (flip Vty.with_back_color) bg
 
-
----------------------------------
-
-
--- | Apply the attributes in @sty@ and @changes@ to @cs@.  If the
--- attributes are not used, @sty@ and @changes@ are not evaluated.
-paintChars :: a -> [(Point,a)] -> [(Point,Char)] -> [(Char, (a,Point))]
-paintChars sty changes cs = [(c,(s,p)) | ((p,c),s) <- zip cs attrs]
-    where attrs = stys sty changes cs
-
-stys :: a -> [(Point,a)] -> [(Point,Char)] -> [a]
-stys sty [] cs = [ sty | _ <- cs ]
-stys sty ((endPos,sty'):xs) cs = [ sty | _ <- previous ] ++ stys sty' xs later
-    where (previous, later) = break ((endPos <=) . fst) cs
