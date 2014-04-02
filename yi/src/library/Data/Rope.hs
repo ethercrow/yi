@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
+
 -- Consider splitting off as a separate package
 -- Copyright (c) 2008 Gustav Munkby
 -- Copyright (c) 2008 Jean-Philippe Bernardy
@@ -15,204 +17,321 @@
 -- implementation, which forces us to always export plain Strings.
 -- (Utf8-string does not have a proper newtype)
 
-module Data.Rope (
-   Rope,
+module Data.Rope
+    ( Rope
 
-   -- * Conversions to Rope
-   fromString,
-
-   -- * Conversions from Rope
-   toString, toReverseString,
-
-   -- * List-like functions
-   null, empty, take, drop,  length, reverse, countNewLines,
-
-   split, splitAt, splitAtLine,
-
-   append, concat,
-
-   -- * IO
-   readFile, writeFile,
-
-   -- * Low level functions
-   splitAtChunkBefore
+    -- * Conversions to Rope
+    , fromString
+    
+    -- * Conversions from Rope
+    , toString, toReverseString
+    
+    -- * List-like functions
+    , empty
+    , singleton, null, length
+    , append, concat
+    , reverse
+    , take, drop
+    , takeScreenful
+    , coordsOfPosition
+    , cons, snoc
+    , insertAt, deleteAt
+    , splitAt
+    , splitAtLine
+    , splitOnNewLines
+    , countNewLines
+    
+    -- * IO
+    , readFile, writeFile
   ) where
 
-import Prelude hiding (null, head, tail, length, take, drop, splitAt, head, tail, foldl, reverse, readFile, writeFile, concat)
-import qualified Data.List as L
+import Prelude hiding (null, length, concat, splitAt, reverse, take, drop, lines
+    , foldr, foldl
+    , readFile, writeFile)
 
-import qualified Data.ByteString.UTF8 as B
-import qualified Data.ByteString as B (append, concat)
-import qualified Data.ByteString as Byte
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as LB (toChunks, fromChunks, null, readFile, split)
-import qualified Data.ByteString.Lazy.UTF8 as LB
-
-import qualified Data.FingerTree as T
-import Data.FingerTree hiding (null, empty, reverse, split)
-
+import Control.Applicative hiding (empty)
+import Control.DeepSeq
+import Control.Lens hiding (cons, snoc, index)
 import Data.Binary
-import Data.Char (ord)
+import Data.Default
+import Data.Foldable (foldr, foldMap, toList)
+import Data.Int
 import Data.Monoid
+import qualified Data.Sequence as S
+import Data.String hiding (lines)
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO as TIO
+import qualified Data.Text.Lazy.Encoding as TE
 
-import System.IO.Cautious (writeFileL)
+maxShortLineLength :: Int64
+maxShortLineLength = 128
 
-defaultChunkSize :: Int
-defaultChunkSize = 128 -- in chars! (chunkSize requires this to be <= 256)
+data Line
+    = ShortLine TL.Text !Size
+    | LongLine (S.Seq TL.Text) !Size
+    deriving Show
 
--- The FingerTree does not store measurements for single chunks, which
--- means that the length of chunks often have to be recomputed.
-mkChunk :: ByteString -> Chunk
-mkChunk s = Chunk (fromIntegral $ B.length s) s
-data Chunk = Chunk { chunkSize :: {-# UNPACK #-} !Word8, fromChunk :: {-# UNPACK #-} !ByteString }
-  deriving (Eq, Show)
+data Rope = Rope
+    { fromRope :: S.Seq Line
+    , stringSize :: !Size
+    } deriving Show
 
-data Size = Indices {charIndex :: {-# UNPACK #-} !Int, lineIndex :: {-# UNPACK #-} !Int} -- lineIndex is lazy because we do not often want the line count. However, we need this to avoid stack overflows on large files!
-  deriving Show
+mkLine :: TL.Text -> Line
+mkLine t = mkLine' t (Size (TL.length t))
 
-instance Monoid Size where
-    mempty = Indices 0 0
-    mappend (Indices c1 l1) (Indices c2 l2) = Indices (c1+c2) (l1+l2)
+mkLine' :: TL.Text -> Size -> Line
+mkLine' t (Size n) | n < maxShortLineLength = ShortLine t (Size n)
+mkLine' t size = LongLine (S.fromList $ map TL.fromStrict $ TL.toChunks t) size
 
-newtype Rope = Rope { fromRope :: FingerTree Size Chunk }
-   deriving (Eq, Show)
+instance Monoid Line where
+    mempty = ShortLine "" (Size 0)
+    mappend (ShortLine l (Size lsize)) (ShortLine r (Size rsize))
+        | lsize + rsize <= maxShortLineLength = ShortLine (l <> r) (Size (lsize + rsize))
+    mappend (ShortLine l lsize) (ShortLine r rsize)
+        = LongLine (S.fromList [l, r]) (lsize <> rsize)
+    mappend (ShortLine l lsize) (LongLine rs rsize) = LongLine (l <| rs) (lsize <> rsize)
+    mappend (LongLine ls lsize) (ShortLine r rsize) = LongLine (ls |> r) (lsize <> rsize)
+    mappend (LongLine ls lsize) (LongLine rs rsize) = LongLine (ls <> rs) (lsize <> rsize)
 
-(-|) :: Chunk -> FingerTree Size Chunk -> FingerTree Size Chunk
-b -| t | chunkSize b == 0 = t
-       | otherwise        = b <| t
+instance NFData Line where
+    rnf (ShortLine t _) = rnf t
+    rnf (LongLine chunks _) = rnf chunks
 
-(|-) :: FingerTree Size Chunk -> Chunk -> FingerTree Size Chunk
-t |- b | chunkSize b == 0 = t
-       | otherwise        = t |> b
+lineToLazyText :: Line -> TL.Text
+lineToLazyText (ShortLine t _) = t
+lineToLazyText (LongLine chunks _) = foldr mappend "" chunks
 
--- Newlines are preserved by UTF8 encoding and decoding
-newline :: Word8
-newline = fromIntegral (ord '\n')
+instance Monoid Rope where
+    mempty = ""
+    mappend s (Rope _ (Size 0)) = s
+    mappend (Rope _ (Size 0)) s = s
+    mappend (Rope l sl) (Rope r sr)
+        = Rope ((l' S.|> (lend <> rbegin)) <> r') (sl <> sr)
+        where l' S.:> lend = S.viewr l
+              rbegin S.:< r' = S.viewl r
 
-instance Measured Size Chunk where
-   measure (Chunk l s) = Indices (fromIntegral l)  -- note that this is the length in characters, not bytes.
-                                 (Byte.count newline s)
+fromLazyText :: TL.Text -> Rope
+fromLazyText t = Rope (S.fromList $ map mkLine $ TL.splitOn "\n" t)
+                          (Size $ TL.length t)
 
--- | The 'Foldable' instance of 'FingerTree' only defines 'foldMap', so the 'foldr' needed for 'toList' is inefficient,
--- and can cause stack overflows. So, we roll our own (somewhat inefficient) version of 'toList' to avoid this.
-toList :: Measured v a => FingerTree v a -> [a]
-toList t = case viewl t of
-              c :< cs -> c : toList cs
-              EmptyL -> []
+instance IsString Rope where
+    fromString = fromLazyText . TL.pack
 
-toLazyByteString :: Rope -> LB.ByteString
-toLazyByteString = LB.fromChunks . fmap fromChunk . toList . fromRope
+instance Default Rope where
+    def = mempty
 
-reverse :: Rope -> Rope
-reverse = Rope . fmap' (mkChunk . B.fromString . L.reverse . B.toString . fromChunk) . T.reverse . fromRope
+instance Eq Rope where
+    lhs == rhs
+        = stringSize lhs == stringSize rhs
+          &&
+          toLazyText lhs == toLazyText rhs
 
-toReverseString :: Rope -> String
-toReverseString = concatMap (L.reverse . B.toString . fromChunk) . toList . T.reverse . fromRope
+instance NFData Rope where
+    rnf (Rope lines _) = rnf lines
+
+toLazyText :: Rope -> TL.Text
+toLazyText = TL.intercalate "\n"
+           . foldr (mappend . return . lineToLazyText) []
+           . fromRope
 
 toString :: Rope -> String
-toString = LB.toString . toLazyByteString
+toString = TL.unpack . toLazyText
 
-fromLazyByteString :: LB.ByteString -> Rope
-fromLazyByteString = Rope . toTree T.empty
-   where
-     toTree acc b | LB.null b = acc
-                  | otherwise = let (h,t) = LB.splitAt (fromIntegral defaultChunkSize) b
-                                    chunk = mkChunk $ B.concat $ LB.toChunks h
-                                in acc `seq` chunk `seq` toTree (acc |> chunk) t
+toReverseString :: Rope -> String
+toReverseString = toString . reverse
 
+-- | Position measured in characters, not bytes.
+newtype Position = Position Int
+    deriving (Eq, Show, Ord)
 
-fromString :: String -> Rope
-fromString = Rope . toTree T.empty
-   where
-     toTree acc [] = acc
-     toTree acc b  = let (h,t) = L.splitAt defaultChunkSize b
-                         chunk = mkChunk $ B.fromString h
-                     in acc `seq` chunk `seq` toTree (acc |> chunk) t
+-- | Size measured in characters, not bytes.
+newtype Size = Size
+    { fromSize :: Int64
+    } deriving (Eq, Show, Ord)
+
+instance Monoid Size where
+    mempty = Size 0
+    mappend (Size a) (Size b) = Size (a + b)
+
+singleton :: Char -> Rope
+singleton '\n' = Rope (S.fromList [mempty, mempty]) (Size 1)
+singleton c = Rope (S.singleton (ShortLine (TL.singleton c) (Size 1))) (Size 1)
 
 null :: Rope -> Bool
-null (Rope a) = T.null a
+null = TL.null . toLazyText
 
 empty :: Rope
-empty = Rope T.empty
+empty = mempty
 
--- | Get the length of the string. (This information cached, so O(1) amortized runtime.)
-length :: Rope -> Int
-length = charIndex . measure . fromRope
-
--- | Count the number of newlines in the strings. (This information cached, so O(1) amortized runtime.)
-countNewLines :: Rope -> Int
-countNewLines = lineIndex . measure . fromRope
-
--- | Append two strings by merging the two finger trees.
 append :: Rope -> Rope -> Rope
-append (Rope a) (Rope b) = Rope $
-     case T.viewr a of
-       EmptyR -> b
-       l :> Chunk len x -> case T.viewl b of
-                   EmptyL  -> a
-                   Chunk len' x' :< r -> if fromIntegral len + fromIntegral len' < defaultChunkSize
-                                then l >< singleton (Chunk (len + len') (x `B.append` x')) >< r
-                                else a >< b
+append = mappend
 
 concat :: [Rope] -> Rope
-concat = L.foldl1' append
+concat = mconcat
 
-take, drop :: Int -> Rope -> Rope
-take n = fst . splitAt n
-drop n = snd . splitAt n
+length :: Rope -> Int
+length (Rope _lines (Size size)) = fromIntegral size
 
--- | Split the string at the specified position.
+findSplitBoundary :: Int64 -> S.Seq Line -> (Int64, Int)
+findSplitBoundary n64 = go 0 0 . toList
+    where go !lengthAcc !index [] = (lengthAcc, index)
+          go !lengthAcc !index (l:_)
+              | lengthAcc + 1 + fromSize (lineSize l) > n64 = (lengthAcc, index)
+          go !lengthAcc !index (l:ls)
+              = go (lengthAcc + 1 + fromSize (lineSize l)) (succ index) ls
+
 splitAt :: Int -> Rope -> (Rope, Rope)
-splitAt n (Rope t) =
-   case T.viewl c of
-     Chunk len x :< r | n' /= 0 ->
-       let (lx, rx) = B.splitAt n' x in (Rope $ l |> Chunk (fromIntegral n') lx, Rope $ Chunk (len - fromIntegral n') rx -| r)
-     _ -> (Rope l, Rope c)
-   where
-     (l, c) = T.split ((> n) . charIndex) t
-     n' = n - charIndex (measure l)
+splitAt n s | n <= 0 = (mempty, s)
+splitAt n s@(Rope _lines (Size size)) | fromIntegral n >= size = (s, mempty)
+splitAt n (Rope lines (Size size)) =
+    (Rope leftLines (Size n64), Rope rightLines (Size (size - n64)))
+    where n64 = fromIntegral n :: Int64
+          (positionAtStartOfBoundaryLine, boundaryLineIndex) = findSplitBoundary n64 lines
+          mostlyLeftPart = S.take (succ boundaryLineIndex) lines
+          strictlyRightPart = S.drop (succ boundaryLineIndex) lines
+          strictlyLeftPart S.:> lastLeftLine
+              = S.viewr mostlyLeftPart
+          (leftLines, rightLines)
+              = (strictlyLeftPart
+                    |> lineTake (n64 - positionAtStartOfBoundaryLine) lastLeftLine,
+                 lineDrop (n64 - positionAtStartOfBoundaryLine) lastLeftLine
+                    <| strictlyRightPart)
 
--- | Split the rope on a chunk, so that the desired
---   position lies within the first chunk of the second rope.
-splitAtChunkBefore :: Int -> Rope -> (Rope, Rope)
-splitAtChunkBefore n (Rope t) =
-  let (l, c) = T.split ((> n) . charIndex) t in (Rope l, Rope c)
-
--- | Split before the specified line. Lines are indexed from 0.
 splitAtLine :: Int -> Rope -> (Rope, Rope)
-splitAtLine n | n <= 0     = \r -> (empty, r)
-              | otherwise = splitAtLine' (n-1)
+splitAtLine 0 s = (mempty, s)
+splitAtLine i s@(Rope lines _) | i >= S.length lines = (s, mempty)
+splitAtLine i (Rope lines _)
+    = ( Rope ls' (Size (fromIntegral i) <> foldMap lineSize ls')
+      , Rope rs (Size (fromIntegral (S.length rs - 1)) <> foldMap lineSize rs)
+      )
+    where ls = S.take i lines
+          rs = S.drop i lines
+          ls' = if S.length rs >= 1 || lineSize (ls ^. _last) > Size 0
+                then ls |> mempty
+                else ls
 
--- | Split after the specified line. Lines are indexed from 0.
-splitAtLine' :: Int -> Rope -> (Rope, Rope)
-splitAtLine' n (Rope t) =
-   case T.viewl c of
-     ch@(Chunk _ x) :< r ->
-       let (lx, rx) = cutExcess excess x
-           excess = lineIndex (measure l) + lineIndex (measure ch) - n - 1
-       in (Rope $ l |- mkChunk lx, Rope $ mkChunk rx -| r)
-     _ -> (Rope l, Rope c)
-   where
-     (l, c) = T.split ((n <) . lineIndex) t
+splitOnNewLines :: (Applicative f, Monoid (f Rope)) => Rope -> f Rope
+splitOnNewLines (Rope lines _) = foldMap go lines
+    where go line = pure (Rope (S.singleton line) (lineSize line))
 
-split :: Word8 -> Rope -> [Rope]
-split c = map fromLazyByteString . LB.split c . toLazyByteString
+countNewLines :: Rope -> Int
+countNewLines = pred . fromIntegral . S.length . fromRope
 
-cutExcess :: Int -> ByteString -> (ByteString, ByteString)
-cutExcess i s = let idx = gt i $ L.reverse $ Byte.elemIndices newline s
-                in Byte.splitAt (idx+1) s -- take one extra byte to that the newline is found on the left.
-    where gt _ []     = Byte.length s
-          gt 0 (x:_ ) = x
-          gt n (_:xs) = gt (n-1) xs
+reverseLine :: Line -> Line
+reverseLine (ShortLine t size) = ShortLine (TL.reverse t) size
+reverseLine (LongLine chunks size) = LongLine (fmap TL.reverse (S.reverse chunks)) size
 
+reverse :: Rope -> Rope
+reverse (Rope lines size) = Rope (fmap reverseLine $ S.reverse lines) size
 
-instance Binary Rope where
-     put = put . toString
-     get = fromString `fmap` get
+take :: Integral i => i -> Rope -> Rope
+take n = fst . splitAt (fromIntegral n)
 
+takeScreenful :: Int -> Int -> Rope -> Rope
+takeScreenful w h (Rope _lines (Size size)) | w == 0 || h == 0 || size == 0 = mempty
+takeScreenful w h (Rope lines (Size size)) =
+    if headLineLength >= w * h
+    then Rope (S.singleton (lineTake (w * h) headLine)) (Size (fromIntegral (w * h)))
+    else if h - headLineHeight > 0
+    then Rope (S.fromList [headLine, mempty]) (Size (fromIntegral (succ headLineLength)))
+         <> takeScreenful w (h - headLineHeight) tailString
+    else Rope (S.singleton headLine) headLineSize
+    where
+    headLineHeight = max 1 (headLineLength `div` w + signum (headLineLength `rem` w))
+    headLineLength = fromIntegral $ fromSize headLineSize
+    headLineSize = lineSize headLine
+    (headLine, tailString) = case S.viewl lines of
+        l S.:< tailLines
+            -> (l, Rope tailLines (Size (size - 1 - fromIntegral headLineLength)))
 
-writeFile :: FilePath -> Rope -> IO ()
-writeFile f = writeFileL f . toLazyByteString
+lineDrop :: Integral i => i -> Line -> Line
+lineDrop 0 l = l
+lineDrop n l | fromIntegral n >= fromSize (lineSize l) = mempty
+lineDrop n (ShortLine t (Size size))
+    = ShortLine (TL.drop (fromIntegral n) t) (Size (size - fromIntegral n))
+lineDrop n l@(LongLine _chunks (Size size)) | size - fromIntegral n < maxShortLineLength
+    = ShortLine (TL.drop (fromIntegral n) (lineToLazyText l)) (Size (size - fromIntegral n))
+lineDrop n l@(LongLine _chunks (Size size))
+    = mkLine' (TL.drop (fromIntegral n) (lineToLazyText l)) (Size (size - fromIntegral n))
+
+lineTake :: Integral i => i -> Line -> Line
+lineTake 0 _ = mempty
+lineTake n l | fromSize (lineSize l) < fromIntegral n = l
+lineTake n l = mkLine' (TL.take (fromIntegral n) (lineToLazyText l)) (Size (fromIntegral n))
+
+drop :: Integral i => i -> Rope -> Rope
+drop n = snd . splitAt (fromIntegral n)
+
+coordsOfPosition :: Integral i => i -> Int -> Rope -> (Int, Int)
+coordsOfPosition pos w (Rope lines _) = go 0 (fromIntegral pos) (toList lines)
+    where
+        go !topOffset _p [] = (topOffset, 0)
+        go !topOffset p (line : rest)
+            = let lineLength = fromIntegral (fromSize (lineSize line))
+              in if p <= lineLength && p < w
+                 then (topOffset, p)
+                 else if p > lineLength
+                 then go (topOffset + max 1
+                                          (lineLength `div` w + signum (lineLength `rem` w)))
+                         (p - lineLength - 1)
+                         rest
+                 else (topOffset + p `div` w, p `rem` w)
+
+lineSnoc :: Line -> Char -> Line
+lineSnoc (ShortLine t (Size size)) c | size > maxShortLineLength
+    = LongLine (S.fromList [t, TL.singleton c]) (Size (succ size))
+lineSnoc (ShortLine t (Size size)) c
+    = ShortLine (t `TL.snoc` c) (Size (succ size))
+lineSnoc (LongLine chunks (Size size)) c | TL.length (chunks ^. _last) >= maxShortLineLength
+    = LongLine (chunks |> TL.singleton c) (Size (succ size))
+lineSnoc (LongLine chunks (Size size)) c
+    = LongLine (chunks & over _last (`TL.snoc` c)) (Size (succ size))
+
+lineCons :: Char -> Line -> Line
+lineCons c (ShortLine t (Size size)) | size > maxShortLineLength
+    = LongLine (S.fromList [TL.singleton c, t]) (Size (succ size))
+lineCons c (ShortLine t (Size size))
+    = ShortLine (c `TL.cons` t) (Size (succ size))
+lineCons c (LongLine chunks (Size size))
+    | TL.length (chunks ^. _head) >= maxShortLineLength
+    = LongLine (TL.singleton c <| chunks) (Size (succ size))
+lineCons c (LongLine chunks (Size size))
+    = LongLine (chunks & over _head (c `TL.cons`)) (Size (succ size))
+
+lineSize :: Line -> Size
+lineSize (ShortLine _t size) = size
+lineSize (LongLine _chunks size) = size
+
+snoc :: Rope -> Char -> Rope
+snoc (Rope lines (Size size)) '\n'
+    = Rope (lines |> mempty)
+               (Size (succ size))
+snoc (Rope lines (Size size)) c
+    = Rope (lines & over _last (`lineSnoc` c))
+               (Size (succ size))
+
+cons :: Char -> Rope -> Rope
+cons '\n' (Rope lines (Size size))
+    = Rope (mempty <| lines)
+               (Size (succ size))
+cons c (Rope lines (Size size))
+    = Rope (lines & over _head (c `lineCons`))
+               (Size (succ size))
+
+insertAt :: Rope -> Int -> Rope -> Rope
+insertAt new index old = oldLeft <> new <> oldRight
+    where (oldLeft, oldRight) = splitAt index old
+
+deleteAt :: Int -> Int -> Rope -> Rope
+deleteAt index size old = left <> right
+    where (left, (_middle, right)) = splitAt size <$> splitAt index old
 
 readFile :: FilePath -> IO Rope
-readFile f = fromLazyByteString `fmap` LB.readFile f
+readFile f = fromLazyText <$> TIO.readFile f
+
+writeFile :: FilePath -> Rope -> IO ()
+writeFile f = TIO.writeFile f . toLazyText
+
+instance Binary Rope where
+    get = fromLazyText . TE.decodeUtf8 <$> get
+    put = put . TE.encodeUtf8 . toLazyText

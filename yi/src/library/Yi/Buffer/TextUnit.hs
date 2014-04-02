@@ -34,6 +34,7 @@ import Control.Applicative
 import Control.Monad
 import Data.Typeable
 import Data.Char
+import qualified Data.Rope as R
 
 import Yi.Buffer.Basic
 import Yi.Buffer.Misc
@@ -44,6 +45,7 @@ data TextUnit = Character -- ^ a single character
               | Line  -- ^ a line of text (between newlines)
               | VLine -- ^ a "vertical" line of text (area of text between two characters at the same column number)
               | Document -- ^ the whole document
+              | Paragraph
               | GenUnit {genEnclosingUnit :: TextUnit,
                          genUnitBoundary :: Direction -> BufferM Bool}
       -- there could be more text units, like Page, Searched, etc. it's probably a good
@@ -65,7 +67,7 @@ genBoundary ofs condition dir = condition <$> peekB
   where -- | read some characters in the specified direction
         peekB = savingPointB $
           do moveN $ mayNegate ofs
-             fmap snd <$> (indexedStreamB dir =<< pointB)
+             R.toString <$> (streamB dir =<< pointB)
         mayNegate = case dir of Forward -> id
                                 Backward -> negate
 
@@ -176,6 +178,7 @@ atBoundary Document Forward  = (>=)   <$> pointB <*> sizeB
 atBoundary Character _ = return True
 atBoundary VLine _ = return True -- a fallacy; this needs a little refactoring.
 atBoundary Line direction = checkPeekB 0 [isNl] direction
+atBoundary Paragraph direction = checkPeekB (-2) [not . isNl, isNl, isNl] direction
 atBoundary (GenUnit _ atBound) dir = atBound dir
 
 enclosingUnit :: TextUnit -> TextUnit

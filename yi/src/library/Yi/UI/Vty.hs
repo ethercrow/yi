@@ -17,14 +17,15 @@ import Control.Monad.State (evalState, get, put)
 import Control.Monad.Base
 import Control.Lens hiding (set)
 import Data.Char (ord,chr)
+import Data.Foldable
 import Data.IORef
 import Data.List (partition, sort, nub)
-import qualified Data.List.PointedList.Circular as PL
-import Data.Foldable
-import Data.Traversable
-import Data.Tuple (swap)
 import Data.Maybe
 import Data.Monoid
+import qualified Data.List.PointedList.Circular as PL
+import qualified Data.Rope as R
+import Data.Traversable
+import Data.Tuple (swap)
 import System.Exit
 import System.Posix.Signals (raiseSignal, sigTSTP)
 import System.Posix.Terminal
@@ -224,7 +225,7 @@ refresh ui e = do
       windowStartY = tabBarHeight
       (cmd, cmdSty) = statusLineInfo e
       niceCmd = arrangeItems cmd xss (maxStatusHeight e)
-      formatCmdLine text = withAttributes statusBarStyle (take xss $ text ++ repeat ' ')
+      formatCmdLine text = stringToImage (take xss $ text ++ repeat ' ')
       renders = fmap (renderWindow (configUI $ config ui) e xss) (PL.withFocus ws)
       startXs = scanrT (+) windowStartY (fmap height ws)
       wImages = fmap picture renders
@@ -253,15 +254,12 @@ refresh ui e = do
 renderTabBar :: Editor -> UI -> Int -> [Image]
 renderTabBar e ui xss = [tabImages <|> extraImage | hasTabBar e ui]
   where tabImages       = foldr1 (<|>) $ fmap tabToVtyImage $ tabBarDescr e
-        extraImage      = withAttributes (tabBarAttributes uiStyle) (replicate (xss - fromEnum totalTabWidth) ' ')
+        extraImage      = stringToImage (replicate (xss - fromEnum totalTabWidth) ' ')
 
         totalTabWidth   = Vty.image_width tabImages
         uiStyle         = configStyle $ configUI $ config ui
         tabTitle text   = " " ++ text ++ " "
-        tabAttr b       = baseAttr b $ tabBarAttributes uiStyle
-        baseAttr True  sty = attributesToAttr (appEndo (tabInFocusStyle uiStyle) sty) Vty.def_attr
-        baseAttr False sty = attributesToAttr (appEndo (tabNotFocusedStyle uiStyle) sty) Vty.def_attr `Vty.with_style` Vty.underline
-        tabToVtyImage _tab@(TabDescr text inFocus) = Vty.string (tabAttr inFocus) (tabTitle text)
+        tabToVtyImage _tab@(TabDescr text inFocus) = Vty.string Vty.def_attr (tabTitle text)
 
 -- | Determine whether it is necessary to render the tab bar
 hasTabBar :: Editor -> UI -> Bool
@@ -294,7 +292,11 @@ renderWindow cfg e width (win,hasFocus) =
 --
 -- TODO: horizontal scrolling.
 drawWindow :: UIConfig -> Editor -> Bool -> Window -> Int -> Int -> (Rendered, Region, Int)
-drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkRegion fromMarkPoint toMarkPoint', dispLnCount)
+drawWindow cfg e focused win w h
+    = ( Rendered { picture = pict
+                 , cursor = maybeCursorPoint }
+      , mkRegion fromMarkPoint toMarkPoint
+      , dispLnCount )
     where
         b = findBufferWith (bufkey win) e
         sty = configStyle cfg
@@ -313,24 +315,47 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
         fromMarkPoint = if notMini
                             then fst $ runBuffer win b (getMarkPointB fromM)
                             else Point 0
-        (text, _)    = runBuffer win b (indexedStreamB Forward fromMarkPoint) -- read chars from the buffer, lazily
+
+        text = R.toString . fst
+             $ runBuffer win b (streamB Forward fromMarkPoint)
 
         tabWidth = tabSize . fst $ runBuffer win b indentSettingsB
         prompt = if isMini win then miniIdentString b else ""
 
-        (rendered,toMarkPoint',cur,dispLnCount) = drawText h' w
-                                fromMarkPoint
-                                point
-                                tabWidth
-                                ([(-1, c) | c <- prompt] ++ text ++ [(eofPoint, ' ')])
-                             -- we always add one character which can be used to position the cursor at the end of file
+        (toMarkPoint, _) = runBuffer win b (lastVisiblePointB fromMarkPoint w h)
+
+        (maybeCursorPoint, _) = runBuffer win b (cursorScreenCoordsB fromMarkPoint w h)
+
+        (rendered, dispLnCount)
+            = drawText h' w
+              fromMarkPoint
+              point
+              tabWidth
+              -- we always add one character which can be used to position the cursor at the end of file
+              (prompt ++ text ++ " ")
         (modeLine0, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
         modeLine = if notMini then Just modeLine0 else Nothing
-        modeLines = map (withAttributes modeStyle . take w . (++ repeat ' ')) $ maybeToList modeLine
+        modeLines = map (stringToImage . take w . (++ repeat ' ')) $ maybeToList modeLine
         modeStyle = (if focused then appEndo (modelineFocusStyle sty) else id) (modelineAttributes sty)
         filler = take w (configWindowFill cfg : repeat ' ')
 
-        pict = vert_cat (take h' (rendered ++ repeat (withAttributes eofsty filler)) ++ modeLines)
+        pict = vert_cat (take h' (rendered ++ repeat (stringToImage filler)) ++ modeLines)
+
+-- Last visible point given the first visible point and viewport dimensions
+lastVisiblePointB :: Point -> Int -> Int -> BufferM Point
+lastVisiblePointB (Point p) w h
+    = Point . (p +) . pred . R.length . R.takeScreenful w h
+    <$> streamB Forward (Point p)
+
+-- Cursor coords given the first visible point and viewport dimensions
+cursorScreenCoordsB :: Point -> Int -> Int -> BufferM (Maybe (Int, Int))
+cursorScreenCoordsB (Point p) w h = do
+    rope <- R.takeScreenful w h <$> streamB Forward (Point p) 
+    (Point cursorPosition) <- pointB
+    return $!
+        if cursorPosition - p > R.length rope
+        then Nothing
+        else Just $ R.coordsOfPosition (cursorPosition - p) w rope
 
 -- | Renders text in a rectangle.
 -- This also returns
@@ -345,58 +370,44 @@ drawText :: Int    -- ^ The height of the part of the window we are in
          -> Point  -- ^ The position of the first character to draw
          -> Point  -- ^ The position of the cursor
          -> Int    -- ^ The number of spaces to represent a tab character with.
-         -> [(Point, Char)]  -- ^ The data to draw.
-         -> ([Image], Point, Maybe (Int,Int), Int)
+         -> String -- ^ The data to draw.
+         -> ([Image], Int)
 drawText h w topPoint point tabWidth bufData
-    | h == 0 || w == 0 = ([], topPoint, Nothing, 0)
-    | otherwise        = (rendered_lines, bottomPoint, pntpos, h - (length wrapped - h))
+    | h == 0 || w == 0 = ([], 0)
+    | otherwise = (rendered_lines, h - (length wrapped - h))
   where
 
   -- the number of lines that taking wrapping into account,
   -- we use this to calculate the number of lines displayed.
-  wrapped = concatMap (wrapLine w) $ map (concatMap expandGraphic) $ take h $ lines' bufData
+  wrapped = concatMap (wrapLine w)
+          $ map (concatMap expandGraphic)
+          $ take h
+          $ lines bufData
   lns0 = take h wrapped
-
-  bottomPoint = case lns0 of
-                 [] -> topPoint
-                 _ -> fst $ last $ last lns0
-
-  pntpos = listToMaybe [(y, x) | (y, l) <- zip [0..] lns0
-                               , (x, (p, _char)) <- zip [0..] l
-                               , p == point]
 
   -- fill lines with blanks, so the selection looks ok.
   rendered_lines = map fillColorLine lns0
 
-  fillColorLine :: [(Point, Char)] -> Image
-  fillColorLine [] = char_fill Vty.def_attr ' ' w 1
-  fillColorLine l = Vty.string Vty.def_attr (map snd l)
-                    <|>
-                    char_fill Vty.def_attr ' ' (w - length l) 1
+  fillColorLine :: String -> Image
+  fillColorLine [] = Vty.char_fill Vty.def_attr ' ' w 1
+  fillColorLine l = Vty.string Vty.def_attr l 
+                  <|> Vty.char_fill Vty.def_attr ' ' (w - length l) 1
 
   -- | Cut a string in lines separated by a '\n' char. Note
   -- that we add a blank character where the \n was, so the
   -- cursor can be positioned there.
 
-  lines' :: [(a, Char)] -> [[(a, Char)]]
-  lines' [] =  []
-  lines' s  = case s' of
-                []          -> [l]
-                ((x, _) : s'') -> (l ++ [(x, ' ')]) : lines' s''
-              where
-              (l, s') = break ((== '\n') . snd) s
-
-  wrapLine :: Int -> [x] -> [[x]]
+  wrapLine :: Int -> String -> [String]
   wrapLine _ [] = []
   wrapLine n l = let (x, rest) = splitAt n l in x : wrapLine n rest
 
-  expandGraphic (p, '\t') = replicate tabWidth (p, ' ')
-  expandGraphic (p, c)
-    | ord c < 32 = [(p, '^'), (p, chr (ord c + 64))]
-    | otherwise = [(p, c)]
+  expandGraphic '\t' = replicate tabWidth ' '
+  expandGraphic c
+    | ord c < 32 = ['^', chr (ord c + 64)]
+    | otherwise = [c]
 
-withAttributes :: Attributes -> String -> Image
-withAttributes sty = Vty.string (attributesToAttr sty Vty.def_attr)
+stringToImage :: String -> Image
+stringToImage = Vty.string Vty.def_attr
 
 ------------------------------------------------------------------------
 
@@ -406,47 +417,11 @@ userForceRefresh = Vty.refresh . vty
 -- | Calculate window heights, given all the windows and current height.
 -- (No specific code for modelines)
 computeHeights :: Int -> PL.PointedList Window -> [Int]
-computeHeights totalHeight ws = y+r-1 : repeat y
+computeHeights totalHeight ws = y + r - 1 : repeat y
   where (mwls, wls) = partition isMini (toList ws)
-        (y,r) = getY (totalHeight - length mwls) (length wls)
+        (y, r) = getY (totalHeight - length mwls) (length wls)
 
-getY :: Int -> Int -> (Int,Int)
+getY :: Int -> Int -> (Int, Int)
 getY screenHeight 0               = (screenHeight, 0)
 getY screenHeight numberOfWindows = screenHeight `quotRem` numberOfWindows
-
-------------------------------
--- Low-level stuff
-
-------------------------------------------------------------------------
-
--- | Convert a Yi Attr into a Vty attribute change.
-colorToAttr :: (Vty.Color -> Vty.Attr -> Vty.Attr) -> Yi.Style.Color -> Vty.Attr -> Vty.Attr
-colorToAttr set c =
-  case c of
-    RGB 0 0 0         -> set Vty.black
-    RGB 128 128 128   -> set Vty.bright_black
-    RGB 139 0 0       -> set Vty.red
-    RGB 255 0 0       -> set Vty.bright_red
-    RGB 0 100 0       -> set Vty.green
-    RGB 0 128 0       -> set Vty.bright_green
-    RGB 165 42 42     -> set Vty.yellow
-    RGB 255 255 0     -> set Vty.bright_yellow
-    RGB 0 0 139       -> set Vty.blue
-    RGB 0 0 255       -> set Vty.bright_blue
-    RGB 128 0 128     -> set Vty.magenta
-    RGB 255 0 255     -> set Vty.bright_magenta
-    RGB 0 139 139     -> set Vty.cyan
-    RGB 0 255 255     -> set Vty.bright_cyan
-    RGB 165 165 165   -> set Vty.white
-    RGB 255 255 255   -> set Vty.bright_white
-    Default           -> id
-    RGB r g b         -> set (Vty.rgb_color r g b)
-
-attributesToAttr :: Attributes -> Vty.Attr -> Vty.Attr
-attributesToAttr (Attributes fg bg reverse bd _itlc underline') =
-    (if reverse then (`Vty.with_style` Vty.reverse_video) else id) .
-    (if bd then (`Vty.with_style` Vty.bold) else id) .
-    (if underline' then (`Vty.with_style` Vty.underline) else id) .
-    colorToAttr (flip Vty.with_fore_color) fg .
-    colorToAttr (flip Vty.with_back_color) bg
 

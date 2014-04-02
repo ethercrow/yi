@@ -545,13 +545,13 @@ queryAndModify f = getsAndModify (queryAndModifyRawbuf f)
 -- | Adds an "overlay" to the buffer
 addOverlayB :: Overlay -> BufferM ()
 addOverlayB ov = do
-  (%=) pendingUpdatesA (++ [overlayUpdate ov])
+  pendingUpdatesA <>= [overlayUpdate ov]
   modifyBuffer $ addOverlayBI ov
 
 -- | Remove an existing "overlay"
 delOverlayB :: Overlay -> BufferM ()
 delOverlayB ov = do
-  (%=) pendingUpdatesA (++ [overlayUpdate ov])
+  pendingUpdatesA <>= [overlayUpdate ov]
   modifyBuffer $ delOverlayBI ov
 
 delOverlayLayerB :: OvlLayer -> BufferM ()

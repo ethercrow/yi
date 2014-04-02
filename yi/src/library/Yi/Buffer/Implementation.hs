@@ -159,16 +159,12 @@ readChunk p (Size n) (Point i) = F.take n $ F.drop i p
 
 -- | Write string into buffer.
 insertChars :: Rope -> Rope -> Point -> Rope
-insertChars p cs (Point i) = left `F.append` cs `F.append` right
-    where (left,right) = F.splitAt i p
+insertChars p cs (Point i) = F.insertAt cs i p
 {-# INLINE insertChars #-}
 
-
--- | Write string into buffer.
+-- | Delete range from buffer.
 deleteChars :: Rope -> Point -> Size -> Rope
-deleteChars p (Point i) (Size n) = left `F.append` right
-    where (left,rest) = F.splitAt i p
-          right = F.drop n rest
+deleteChars p (Point i) (Size n) = F.deleteAt i n p
 {-# INLINE deleteChars #-}
 
 ------------------------------------------------------------------------
