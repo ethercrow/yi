@@ -9,6 +9,7 @@
 module Yi.UI.Vty (start) where
 
 import Prelude hiding (error,mapM,foldr1,concatMap,mapM_,reverse)
+
 import Control.Applicative hiding ((<|>))
 import Control.Arrow
 import Control.Monad hiding (mapM,mapM_)
@@ -50,8 +51,8 @@ data Rendered =
              , cursor  :: !(Maybe (Int,Int)) -- ^ cursor point on the above
              }
 
-data UI = UI {  vty            :: Vty             -- ^ Vty
-             , scrsize         :: IORef (Int,Int) -- ^ screen size
+data UI = UI { vty             :: Vty
+             , screenSize         :: IORef (Int, Int) -- ^ screen size
              , uiThread        :: ThreadId
              , uiEndInputLoop  :: MVar ()
              , uiEndRenderLoop :: MVar ()
@@ -182,7 +183,7 @@ fromVtyMod Vty.MAlt   = Yi.Event.MMeta
 -- This re-computes the heights and widths of all the windows.
 layout :: UI -> Editor -> IO Editor
 layout ui e = do
-  (rows,cols) <- readIORef (scrsize ui)
+  (rows, cols) <- readIORef (screenSize ui)
   let ws = windows e
       tabBarHeight = if hasTabBar e ui then 1 else 0
       (cmd, _) = statusLineInfo e
@@ -193,16 +194,16 @@ layout ui e = do
                            -- Discard this field, otherwise we keep retaining reference to
                            -- old Window objects (leak)
 
-  let apply :: Window -> IO Window
+      apply :: Window -> IO Window
       apply win = do
         let uiconfig = configUI $ config ui
         newWinRegion <- return $! getRegionImpl win uiconfig e cols (height win)
         newActualLines <- return $! windowLinesDisp win uiconfig e cols (height win)
         return $! win { winRegion = newWinRegion, actualLines = newActualLines }
 
+  logPutStrLn ("layout: niceCmd = " ++ show niceCmd)
   ws'' <- mapM (apply . discardOldRegion) ws'
   return $ windowsA .~ ws'' $ e
-  -- return $ windowsA ^= forcePL ws'' $ e
 
 -- Do Vty layout inside the Yi event loop
 layoutAction :: (MonadEditor m, MonadBase IO m) => UI -> m ()
@@ -218,20 +219,21 @@ requestRefresh ui e = do
 -- | Redraw the entire terminal from the UI.
 refresh :: UI -> Editor -> IO ()
 refresh ui e = do
-  (_,xss) <- readRef (scrsize ui)
+  (_,screenWidth) <- readRef (screenSize ui)
   let ws = windows e
       tabBarHeight = if hasTabBar e ui then 1 else 0
       windowStartY = tabBarHeight
       (cmd, cmdSty) = statusLineInfo e
-      niceCmd = arrangeItems cmd xss (maxStatusHeight e)
-      formatCmdLine text = withAttributes statusBarStyle (take xss $ text ++ repeat ' ')
-      renders = fmap (renderWindow (configUI $ config ui) e xss) (PL.withFocus ws)
+      niceCmd = arrangeItems cmd screenWidth (maxStatusHeight e)
+      formatCmdLine text = withAttributes statusBarStyle (take screenWidth $ text ++ repeat ' ')
+      renders = fmap (renderWindow (configUI $ config ui) e screenWidth) (PL.withFocus ws)
       startXs = scanrT (+) windowStartY (fmap height ws)
       wImages = fmap picture renders
       statusBarStyle = ((appEndo <$> cmdSty) <*> baseAttributes) $ configStyle $ configUI $ config ui
-      tabBarImages = renderTabBar e ui xss
+      tabBarImages = renderTabBar e ui screenWidth
   logPutStrLn "refreshing screen."
   logPutStrLn $ "startXs: " ++ show startXs
+  logPutStrLn ("refresh: niceCmd = " ++ show niceCmd)
   Vty.update (vty ui)
       ( pic_for_image ( vert_cat tabBarImages
                         <->
@@ -251,9 +253,9 @@ refresh ui e = do
 
 -- | Construct images for the tabbar if at least one tab exists.
 renderTabBar :: Editor -> UI -> Int -> [Image]
-renderTabBar e ui xss = [tabImages <|> extraImage | hasTabBar e ui]
+renderTabBar e ui screenWidth = [tabImages <|> extraImage | hasTabBar e ui]
   where tabImages       = foldr1 (<|>) $ fmap tabToVtyImage $ tabBarDescr e
-        extraImage      = withAttributes (tabBarAttributes uiStyle) (replicate (xss - fromEnum totalTabWidth) ' ')
+        extraImage      = withAttributes (tabBarAttributes uiStyle) (replicate (screenWidth - fromEnum totalTabWidth) ' ')
 
         totalTabWidth   = Vty.image_width tabImages
         uiStyle         = configStyle $ configUI $ config ui
@@ -333,9 +335,9 @@ drawWindow cfg e focused win w h = (Rendered { picture = pict,cursor = cur}, mkR
                                 tabWidth
                                 ([(c,(wsty, -1)) | c <- prompt] ++ bufData ++ [(' ',(wsty, eofPoint))])
                              -- we always add one character which can be used to position the cursor at the end of file
-        (modeLine0, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
-        modeLine = if notMini then Just modeLine0 else Nothing
-        modeLines = map (withAttributes modeStyle . take w . (++ repeat ' ')) $ maybeToList modeLine
+        (modeLine, _) = runBuffer win b $ getModeLine (commonNamePrefix e)
+        modeLines = map (withAttributes modeStyle . take w . (++ repeat ' '))
+                        [modeLine | notMini]
         modeStyle = (if focused then appEndo (modelineFocusStyle sty) else id) (modelineAttributes sty)
         filler = take w (configWindowFill cfg : repeat ' ')
 

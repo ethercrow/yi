@@ -821,7 +821,7 @@ readRegionRopeWithStyleB reg style = readRegionB' =<< convertRegionToStyleB reg 
 
 insertRopeWithStyleB :: Rope -> RegionStyle -> BufferM ()
 insertRopeWithStyleB rope Block = savingPointB $ do
-    let ls = R.split (fromIntegral (ord '\n')) rope
+    let ls = R.splitOnNewLines rope
         advanceLine = do
             bottom <- atLastLine
             if bottom

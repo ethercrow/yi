@@ -63,6 +63,7 @@ library
     CPP-options: -DPROFILING
 
   exposed-modules:
+    Data.Rope
     Yi
     Yi.Boot
     Yi.Buffer
@@ -229,8 +230,9 @@ library
     bytestring >= 0.9.1 && < 0.11,
     cautious-file >= 1.0.1,
     concrete-typerep >= 0.1.0.2 && < 0.1.1,
-    derive >=2.4 && <2.7,
     data-default,
+    derive >=2.4 && <2.7,
+    deepseq,
     lens >= 3.9,
     dlist >=0.4.1,
     dyre >=0.8.11,
@@ -246,6 +248,7 @@ library
     safe >= 0.3.4 && < 0.4,
     split >= 0.1 && < 0.3,
     template-haskell >= 2.4,
+    text,
     time >= 1.1 && < 1.5,
     utf8-string >= 0.3.1,
     uniplate,
@@ -334,7 +337,6 @@ library
     Control.Exc,
     Data.DelayList,
     Data.Prototype,
-    Data.Rope,
     Data.Trie,
     Shim.CabalInfo,
     Shim.Utils,
@@ -389,9 +391,11 @@ Test-Suite test-suite
   main-is: TestSuite.hs
   build-depends:
     base,
+    text,
     tasty,
     tasty-hunit,
     tasty-quickcheck,
+    tasty-th,
     HUnit,
     QuickCheck,
     filepath,
