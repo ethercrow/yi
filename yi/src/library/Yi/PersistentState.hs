@@ -57,7 +57,7 @@ deriving instance Generic PersistentState
 instance Binary PersistentState
 #endif
 
-newtype MaxHistoryEntries = MaxHistoryEntries { unMaxHistoryEntries :: Int }
+newtype MaxHistoryEntries = MaxHistoryEntries { _unMaxHistoryEntries :: Int }
   deriving(Typeable, Binary)
 
 instance Default MaxHistoryEntries where
@@ -68,7 +68,7 @@ instance YiConfigVariable MaxHistoryEntries
 makeLensesWithSuffix "A" ''MaxHistoryEntries
 
 maxHistoryEntries :: Field Int
-maxHistoryEntries = customVariable . unMaxHistoryEntriesA
+maxHistoryEntries = customVariable . _unMaxHistoryEntriesA
 
 -- | Trims per-command histories to contain at most N completions each.
 trimHistories :: Int -> Histories -> Histories

@@ -252,7 +252,7 @@ library
     transformers-base
 
   build-tools: alex >= 3.0.3
-  ghc-options: -Wall -fno-warn-orphans
+  ghc-options: -Wall -Werror -fno-warn-orphans
   ghc-prof-options: -prof -auto-all -rtsopts
   if flag(profiling)
     cpp-options: -DPROFILING

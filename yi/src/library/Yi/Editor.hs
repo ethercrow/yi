@@ -99,7 +99,11 @@ instance Binary Editor where
 newtype EditorM a = EditorM {fromEditorM :: ReaderT Config (State Editor) a}
     deriving (Monad, MonadState Editor, MonadReader Config, Functor)
 
+#if __GLASGOW_HASKELL__ < 708
 deriving instance Typeable1 EditorM
+#else
+deriving instance Typeable EditorM
+#endif
 
 instance Applicative EditorM where
   pure = return

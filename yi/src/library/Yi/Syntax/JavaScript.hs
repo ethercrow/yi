@@ -7,6 +7,7 @@
 module Yi.Syntax.JavaScript where
 
 import Prelude hiding (elem,error,any,exp)
+import qualified Prelude
 import Control.Applicative hiding (Const)
 import Data.Data (Data)
 import Data.Monoid
@@ -114,6 +115,8 @@ instance IsTree Statement where
     subtrees (Else _ x) = fromBlock x
     subtrees (With _ _ x) = fromBlock x
     subtrees _ = []
+    emptyNode = Prelude.error "emptyNode is undefined for Yi.Syntax.JavaScript.Statement"
+    uniplate = Prelude.error "uniplate is undefined for Yi.Syntax.JavaScript.Statement"
 
 instance Failable ForContent where
     stupid = ForErr

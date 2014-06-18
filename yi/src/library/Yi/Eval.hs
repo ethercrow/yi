@@ -136,7 +136,7 @@ ghciEvaluator = Evaluator{..} where
 
 ------------------- PublishedActions evaluator
 newtype PublishedActions = PublishedActions {
-    publishedActions_ :: M.HashMap String Action
+    _publishedActions :: M.HashMap String Action
   } deriving(Typeable, Monoid)
 instance Default PublishedActions where def = mempty
 makeLensesWithSuffix "A" ''PublishedActions
@@ -144,7 +144,7 @@ instance YiConfigVariable PublishedActions
 
 -- | Accessor for the published actions. Consider using 'publishAction'.
 publishedActions :: Field (M.HashMap String Action)
-publishedActions = customVariable . publishedActions_A
+publishedActions = customVariable . _publishedActionsA
 
 -- | Publish the given action, by the given name. This will overwrite any existing actions by the same name.
 publishAction :: (YiAction a x, Show x) => String -> a -> ConfigM ()

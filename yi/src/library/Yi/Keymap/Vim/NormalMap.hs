@@ -8,7 +8,7 @@ import Control.Lens hiding (re)
 import System.Directory (doesFileExist)
 
 import Data.Char
-import Data.List (group, isPrefixOf)
+import Data.List (group)
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import qualified Data.HashMap.Strict as HM

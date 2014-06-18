@@ -21,7 +21,6 @@ import Control.Lens
 import Data.Char (isSpace)
 import Data.Foldable (asum)
 import Data.List (group)
-import Data.Maybe (maybe)
 import qualified Data.Rope as R
 import Safe (headDef)
 
@@ -142,7 +141,7 @@ mkChooseRegisterBinding :: (VimState -> Bool) -> VimBinding
 mkChooseRegisterBinding statePredicate = VimBindingE f
     where f "\"" s | statePredicate s = PartialMatch
           f ('"':c:[]) s | statePredicate s = WholeMatch $ do
-              modifyStateE $ \s -> s { vsActiveRegister = c }
+              modifyStateE $ \state -> state { vsActiveRegister = c }
               return Continue
           f _ _ = NoMatch
 
