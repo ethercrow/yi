@@ -1,0 +1,17 @@
+--+ ModeName haskell
+-- Input
+(3,9)
+module Main where
+
+foo = do bar
+         baz
+
+-- Output
+(3,5)
+module Main where
+
+foo bar = do bar
+             baz
+
+-- Events
+y$bbhP

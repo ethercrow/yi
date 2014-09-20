@@ -4,7 +4,9 @@
 -- cursor. For example, opening a second buffer is not considered a pure buffer
 -- operation.
 
-module Generic.TestPureBufferManipulations where
+module Generic.TestPureBufferManipulations
+    ( getTests
+    ) where
 
 import Test.Tasty.HUnit
 import Test.Tasty (TestTree, testGroup)
@@ -12,7 +14,7 @@ import Test.Tasty (TestTree, testGroup)
 import Control.Monad (filterM, forM, void, unless)
 import Control.Lens ((%=))
 
-import Data.List (sort, isSuffixOf, intercalate, isPrefixOf)
+import Data.List (find, intercalate, isPrefixOf, isSuffixOf, sort)
 import Data.Ord (comparing)
 
 import System.Directory
@@ -21,10 +23,11 @@ import System.FilePath
 import Text.Printf
 
 import Yi.Buffer
-import Yi.Config (Config)
+import Yi.Config (Config, modeTable)
 import Yi.Editor
-import Yi.Window
+import Yi.MiniBuffer (anyModeName) -- why is it even in that module?
 import Yi.Region
+import Yi.Window
 
 import Generic.TestUtils
 
@@ -37,11 +40,14 @@ data KeymapTest = KeymapTest {
                  , ktKeysEval :: KeyEval
                }
 
-data OptionalSetting = WindowSize Int Int  -- ^ WindowSize Width Height 
-                     deriving Eq
+data OptionalSetting
+    = WindowSize { _width :: Int, _height :: Int }
+    | ModeName String
+    deriving Eq
 
 instance Show OptionalSetting where
     show (WindowSize w h) = unwords ["+WindowSize", (show w), (show h)]
+    show (ModeName n) = n
 
 instance Eq KeymapTest where
   KeymapTest n s i o e _ == KeymapTest n' s' i' o' e' _ =
@@ -68,7 +74,10 @@ isOptionalSetting :: String -> Bool
 isOptionalSetting = (optionalSettingPrefix `isPrefixOf`)
 
 decodeOptionalSetting :: [String] -> OptionalSetting
-decodeOptionalSetting ["WindowSize", w, h] = WindowSize (read w) (read h)
+decodeOptionalSetting ["WindowSize", w, h] =
+    WindowSize (read w) (read h)
+decodeOptionalSetting ["ModeName", mname] =
+    ModeName mname
 decodeOptionalSetting unknownSetting = 
     error $ "Invalid Setting: " ++ (intercalate " " unknownSetting) 
 
@@ -151,16 +160,20 @@ discoverTests topdir ev = do
     testsFromFiles <- mapM (`loadTestFromFile` ev) testFiles
     return $ testsFromDirs ++ testsFromFiles
 
-optionalSettingAction :: OptionalSetting -> EditorM ()
-optionalSettingAction (WindowSize w h) = 
+optionalSettingAction :: Config -> OptionalSetting -> EditorM ()
+optionalSettingAction _ (WindowSize w h) =
     let region = mkSizeRegion (Point 0) (Size (w*h))
     in currentWindowA %= (\w -> w { height = h, winRegion = region })
+optionalSettingAction config (ModeName mname) =
+    case find ((mname ==) . anyModeName) (modeTable config) of
+        Just mode -> withBuffer0 (setAnyMode mode)
+        Nothing -> withBuffer0 (insertN ("No such mode " ++ mname))
 
 mkTestCase :: Config -> KeymapTest -> TestTree
 mkTestCase cf t = testCase (ktName t) $ do
     let setupActions = do
             let (cursorLine, '\n':text) = break (== '\n') (ktInput t)
-            mapM_ optionalSettingAction $ ktOptionalSettings t
+            mapM_ (optionalSettingAction cf) (ktOptionalSettings t)
             insertText text
             setCursorPosition cursorLine
 
@@ -171,7 +184,7 @@ mkTestCase cf t = testCase (ktName t) $ do
         assertions editor _ =
             let actualOut = cursorPos editor ++ "\n" ++
                             extractBufferString cf editor
-            in  assertEqual (errorMsg actualOut) actualOut (ktOutput t)
+            in  assertEqual (errorMsg actualOut) (ktOutput t) actualOut
 
     runTest setupActions preConditions testActions assertions cf
 
