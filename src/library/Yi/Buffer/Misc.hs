@@ -122,7 +122,6 @@ module Yi.Buffer.Misc
   , revertPendingUpdatesB
   , askWindow
   , clearSyntax
-  , focusSyntax
   , Mode (..)
   , modeNameA
   , modeAppliesA
@@ -777,16 +776,11 @@ withMode0 f FBuffer {bmode = m} = f m
 withModeB :: (forall syntax. Mode syntax -> BufferM a) -> BufferM a
 withModeB = join . gets . withMode0
 
-withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> WindowRef -> FBuffer -> a
-withSyntax0 f wk (FBuffer bm rb _attrs) = f bm (getAst wk rb)
-
+withSyntax0 :: (forall syntax. Mode syntax -> syntax -> a) -> FBuffer -> a
+withSyntax0 f (FBuffer bm rb _attrs) = f bm (getAst rb)
 
 withSyntaxB :: (forall syntax. Mode syntax -> syntax -> a) -> BufferM a
-withSyntaxB f = withSyntax0 f <$> askWindow wkey <*> use id
-
-
-focusSyntax ::  M.Map WindowRef Region -> FBuffer -> FBuffer
-focusSyntax r = modifyRawbuf (focusAst r)
+withSyntaxB f = withSyntax0 f <$> use id
 
 withSyntaxB' :: (forall syntax. Mode syntax -> syntax -> BufferM a) -> BufferM a
 withSyntaxB' = join . withSyntaxB

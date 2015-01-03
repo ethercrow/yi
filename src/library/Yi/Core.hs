@@ -40,7 +40,6 @@ module Yi.Core
   -- * Misc
   , runAction
   , withSyntax
-  , focusAllSyntax
   , forkAction
   ) where
 
@@ -323,17 +322,6 @@ clearAllSyntaxAndHideSelection = buffersA %~ fmap (clearSyntax . clearHighlight)
           us = view pendingUpdatesA fb
       in highlightSelectionA .~ (h && null us) $ fb
 
-
--- Focus syntax tree on the current window, for all visible buffers.
-focusAllSyntax :: Editor -> Editor
-focusAllSyntax e6 = buffersA %~ fmap (\b -> focusSyntax (regions b) b) $ e6
-    where regions b = M.fromList [(wkey w, winRegion w) | w <- toList $ windows e6, bufkey w == bkey b]
-          -- Why bother filtering the region list? After all the trees
-          -- are lazily computed. Answer: focusing is an incremental
-          -- algorithm. Each "focused" path depends on the previous
-          -- one. If we left unforced focused paths, we'd create a
-          -- long list of thunks: a memory leak.
-
 -- | Redraw
 refreshEditor :: YiM ()
 refreshEditor = onYiVar $ \yi var -> do
@@ -356,7 +344,6 @@ refreshEditor = onYiVar $ \yi var -> do
              scroll >>=
              -- Adjust point according to the current layout;
              return . fst . runOnWins snapInsB >>=
-             return . focusAllSyntax >>=
              -- Clear "pending updates" and "followUp" from buffers.
              return . (buffersA %~ fmap (clearUpdates . clearFollow))
         -- Display the new state of the editor

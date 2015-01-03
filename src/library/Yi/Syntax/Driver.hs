@@ -3,53 +3,59 @@
 
 -- | This module defines implementations of syntax-awareness drivers.
 
-module Yi.Syntax.Driver where
+module Yi.Syntax.Driver
+    ( mkHighlighter
+    ) where
 
 import qualified  Data.Map as M
 import Data.Map (Map)
 
-import Yi.Buffer.Basic(WindowRef)
+import Yi.Window (WindowRef)
 import Yi.Lexer.Alex (Tok)
-import Yi.Syntax hiding (Cache)
+import Yi.Syntax hiding (Cache, mkHighlighter)
 import Yi.Syntax.Tree
 
 type Path = [Int]
 
-data Cache state tree tt = Cache {
-                                   path :: M.Map WindowRef Path,
-                                   cachedStates :: [state],
-                                   root :: tree (Tok tt),
-                                   focused :: !(M.Map WindowRef (tree (Tok tt)))
-                                 }
+data Cache state tree tt = Cache
+    { path :: M.Map WindowRef Path
+    , cachedStates :: [state]
+    , root :: tree (Tok tt)
+    }
 
 mkHighlighter :: forall state tree tt. (IsTree tree, Show state) =>
                  (Scanner Point Char -> Scanner state (tree (Tok tt))) ->
                      Highlighter (Cache state tree tt) (tree (Tok tt))
 mkHighlighter scanner =
   Yi.Syntax.SynHL
-        { hlStartState   = Cache M.empty [] emptyResult M.empty
+        { hlStartState   = Cache M.empty [] emptyResult
         , hlRun          = updateCache
-        , hlGetTree      = \(Cache _ _ _ focused) w -> M.findWithDefault emptyResult w focused
-        , hlFocus        = focus
+        , hlGetTree      = const emptyResult
         }
     where startState :: state
-          startState = scanInit    (scanner emptyFileScan)
+          startState = scanInit (scanner emptyFileScan)
           emptyResult = scanEmpty (scanner emptyFileScan)
-          updateCache :: Scanner Point Char -> Point -> Cache state tree tt -> Cache state tree tt
-          updateCache newFileScan dirtyOffset (Cache path cachedStates oldResult _) = Cache path newCachedStates newResult M.empty
+          updateCache :: Scanner Point Char -> Point
+              -> Cache state tree tt -> Cache state tree tt
+          updateCache newFileScan dirtyOffset
+              (Cache path cachedStates oldResult) =
+                  Cache path newCachedStates newResult
             where newScan = scanner newFileScan
                   reused :: [state]
-                  reused = takeWhile ((< dirtyOffset) . scanLooked (scanner newFileScan)) cachedStates
+                  reused =
+                      takeWhile
+                          ((< dirtyOffset) . scanLooked (scanner newFileScan))
+                          cachedStates
                   resumeState :: state
                   resumeState = if null reused then startState else last reused
 
                   newCachedStates = reused ++ fmap fst recomputed
                   recomputed = scanRun newScan resumeState
                   newResult :: tree (Tok tt)
-                  newResult = if null recomputed then oldResult else snd $ head recomputed
-          focus r (Cache path states root _focused) =
-              Cache path' states root focused
-              where (path', focused) = unzipFM $ zipWithFM (\newpath oldpath -> fromNodeToFinal newpath (oldpath,root)) [] r path
+                  newResult =
+                      if null recomputed
+                      then oldResult
+                      else snd (head recomputed)
 
 unzipFM :: Ord k => [(k,(u,v))] -> (Map k u, Map k v)
 unzipFM l = (M.fromList mu, M.fromList mv)

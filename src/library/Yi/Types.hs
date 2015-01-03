@@ -53,7 +53,7 @@ import           Data.Word
 #ifdef FRONTEND_VTY
 import qualified Graphics.Vty as Vty
 #endif
-import           Yi.Buffer.Basic (BufferRef, WindowRef)
+import           Yi.Buffer.Basic (BufferRef)
 import           Yi.Buffer.Implementation
 import           Yi.Buffer.Undo
 import           Yi.Config.Misc

@@ -17,10 +17,21 @@ import Data.Binary
 import Data.Default
 import Data.Typeable
 import Control.Applicative
-import Yi.Buffer.Basic (BufferRef, WindowRef)
+
+import Yi.Buffer.Basic (BufferRef)
 import Yi.Region (Region,emptyRegion)
 import Yi.JumpList
 import Yi.Utils (makeLensesWithSuffix)
+
+newtype WindowRef = WindowRef Int
+    deriving (Eq, Ord, Show)
+
+instance Default WindowRef where
+    def = WindowRef (-1)
+
+instance Binary WindowRef where
+    get = WindowRef <$> get
+    put (WindowRef x) = put x
 
 ------------------------------------------------------------------------
 -- | A window onto a buffer.

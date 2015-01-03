@@ -28,7 +28,6 @@ import Data.Foldable
 import qualified Data.List.PointedList as PL
 import Control.Applicative
 
-import Yi.Buffer.Basic(WindowRef)
 import Yi.Layout
 import Yi.Window
 

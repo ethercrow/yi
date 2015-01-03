@@ -54,7 +54,7 @@ module Yi.Buffer.Implementation
   , delOverlaysOfOwnerBI
   , getOverlaysOfOwnerBI
   , updateSyntax
-  , getAst, focusAst
+  , getAst
   , strokesRangesBI
   , getStream
   , getIndexedStream
@@ -455,9 +455,6 @@ getMarkDefaultPosBI name defaultPos fb@FBufferData {marks = mks, markNames = nms
                mks' = M.insert newMark (MarkValue defaultPos Forward) mks
            in (fb {marks = mks', markNames = nms'}, newMark)
 
-
-getAst :: WindowRef -> BufferImpl syntax -> syntax
-getAst w FBufferData {hlCache = HLState (SynHL {hlGetTree = gt}) cache} = gt cache w
-
-focusAst ::  M.Map WindowRef Region -> BufferImpl syntax -> BufferImpl syntax
-focusAst r b@FBufferData {hlCache = HLState s@(SynHL {hlFocus = foc}) cache} = b {hlCache = HLState s (foc r cache)}
+getAst :: BufferImpl syntax -> syntax
+getAst FBufferData {hlCache = HLState (SynHL {hlGetTree = gt}) cache} =
+    gt cache
