@@ -20,7 +20,7 @@ import           Yi.Lexer.Alex (lexScanner, commonLexer, CharScanner,
 import qualified Yi.Lexer.Latex as Latex
 import           Yi.Modes (anyExtension, fundamentalMode)
 import           Yi.Syntax
-import qualified Yi.Syntax.Driver as Driver
+import qualified Yi.Syntax as Driver
 import qualified Yi.Syntax.Latex as Latex
 import           Yi.Syntax.OnlineTree (manyToks, Tree)
 import           Yi.Syntax.Tree

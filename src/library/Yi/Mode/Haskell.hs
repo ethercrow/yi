@@ -62,7 +62,7 @@ import           Yi.Monad
 import qualified Yi.Rope as R
 import           Yi.String
 import           Yi.Syntax
-import qualified Yi.Syntax.Driver as Driver
+import qualified Yi.Syntax as Driver
 import           Yi.Syntax.Haskell as Hask
 import           Yi.Syntax.Layout (State)
 import           Yi.Syntax.OnlineTree as OnlineTree

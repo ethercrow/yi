@@ -52,8 +52,7 @@ import qualified Yi.Lexer.Whitespace as Whitespace
 import           Yi.MiniBuffer
 import qualified Yi.Rope as R
 import           Yi.Style
-import           Yi.Syntax hiding (mkHighlighter)
-import           Yi.Syntax.Driver (mkHighlighter)
+import           Yi.Syntax
 import           Yi.Syntax.OnlineTree (manyToks, Tree)
 import           Yi.Syntax.Tree
 
