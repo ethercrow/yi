@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_HADDOCK show-extensions #-}
 
 -- |
@@ -27,6 +28,9 @@ import Data.Char (toUpper)
 import Data.List (find)
 import Data.Monoid
 import Data.Prototype
+
+import qualified System.Hclip as Clip
+
 import Yi.Buffer.Adjusted hiding (Insert)
 import Yi.Editor
 import Yi.Event
@@ -47,6 +51,8 @@ import Yi.Keymap.Vim.SearchMotionMap
 import Yi.Keymap.Vim.StateUtils
 import Yi.Keymap.Vim.Utils
 import Yi.Keymap.Vim.VisualMap
+import qualified Yi.Rope as R
+import Yi.Utils (io)
 
 data VimConfig = VimConfig {
     vimKeymap :: Keymap
@@ -85,7 +91,16 @@ defVimConfig = Proto $ \this -> VimConfig {
 defVimKeymap :: VimConfig -> KeymapM ()
 defVimKeymap config = do
   e <- anyEvent
-  write $ impureHandleEvent config e True
+  write $ do
+    maybeReg <- withEditor (getRegisterE '\0')
+    clip <- fmap R.fromString (io Clip.getClipboard)
+    let style = maybe Exclusive regRegionStyle maybeReg
+    withEditor (setRegisterE '\0' style clip)
+    impureHandleEvent config e True
+    maybeRegAfter <- withEditor (getRegisterE '\0')
+    case (maybeReg, maybeRegAfter) of
+        (Just (Register _ before), Just (Register _ after)) | before /= after -> io (Clip.setClipboard (R.toString after))
+        _ -> return ()
 
 -- This is not in Yi.Keymap.Vim.Eval to avoid circular dependency:
 -- eval needs to know about bindings, which contains normal bindings,
