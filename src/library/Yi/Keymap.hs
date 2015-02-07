@@ -38,9 +38,6 @@ module Yi.Keymap
     , withUI
     , unsafeWithEditor
     , readEditor
-    , catchDynE
-    , catchJustE
-    , handleJustE
     , YiAction (..)
     , Yi(..)
     , IsRefreshNeeded(..)
@@ -86,19 +83,6 @@ withUI = with yiUi
 
 readEditor :: MonadEditor m => (Editor -> a) -> m a
 readEditor f = withEditor (gets f)
-
-catchDynE :: Exception exception => YiM a -> (exception -> YiM a) -> YiM a
-catchDynE (YiM inner) handler
-    = YiM $ ReaderT (\r -> catch (runReaderT inner r) (\e -> runReaderT (runYiM $ handler e) r))
-
-catchJustE :: (Exception e) => (e -> Maybe b) -- ^ Predicate to select exceptions
-           -> YiM a      -- ^ Computation to run
-           -> (b -> YiM a) -- ^   Handler
-           -> YiM a
-catchJustE p (YiM c) h = YiM $ ReaderT (\r -> catchJust p (runReaderT c r) (\b -> runReaderT (runYiM $ h b) r))
-
-handleJustE :: (Exception e) => (e -> Maybe b) -> (b -> YiM a) -> YiM a -> YiM a
-handleJustE p h c = catchJustE p c h
 
 -- -------------------------------------------
 
