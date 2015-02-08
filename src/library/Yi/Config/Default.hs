@@ -9,6 +9,7 @@ import           Control.Applicative
 import           Control.Lens hiding (Action)
 import           Control.Monad
 import           Data.Default
+import           Data.Foldable (asum)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.Monoid
@@ -238,7 +239,7 @@ openScratchBuffer = withEditor $ do
       FileBuffer _ -> True
 
 nilKeymap :: Keymap
-nilKeymap = choice [
+nilKeymap = asum [
              char 'q' ?>>! quitEditor,
              char 'h' ?>>! configHelp
             ]

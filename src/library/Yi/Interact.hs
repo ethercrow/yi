@@ -58,7 +58,6 @@ module Yi.Interact
      computeState,
      event,
      events,
-     choice,
      mkAutomaton, idAutomaton,
      runWrite,
      anyEvent,
@@ -68,10 +67,10 @@ import           Control.Applicative
 import           Control.Arrow (first)
 import           Control.Lens
 import           Control.Monad.State hiding ( get, mapM )
+import           Data.Foldable (asum)
 import           Data.Function (on)
 import           Data.List (groupBy)
 import           Data.Monoid
-import qualified Data.Text as T
 
 ------------------------------------------------
 -- Classes
@@ -243,13 +242,10 @@ computeState a = case findWrites 0 a of
         _ -> Ambiguous $ map head bests
     s -> s
 
-
-
 pullWrites :: Eq w => P event w -> ([w], P event w)
 pullWrites a = case computeState a of
     Running w c -> first (w:) (pullWrites c)
     _ -> ([], a)
-
 
 instance (Show w, Show ev) => Show (P ev w) where
     show (Get Nothing Nothing _) = "?"
@@ -265,7 +261,7 @@ instance (Show w, Show ev) => Show (P ev w) where
 -- ---------------------------------------------------------------------------
 -- Derived operations
 oneOf :: (Ord event, MonadInteract m w event) => [event] -> m event
-oneOf s = choice $ map event s
+oneOf s = asum $ map event s
 
 anyEvent :: (Ord event, MonadInteract m w event) => m event
 anyEvent = eventBounds Nothing Nothing
@@ -277,12 +273,6 @@ event e = eventBounds (Just e) (Just e)
 events :: (Ord event, MonadInteract m w event) => [event] -> m [event]
 -- ^ Parses and returns the specified list of events (lazily).
 events = mapM event
-
-choice :: (MonadInteract m w e) => [m a] -> m a
--- ^ Combines all parsers in the specified list.
-choice []     = fail "No choice succeeds"
-choice [p]    = p
-choice (p:ps) = p `mplus` choice ps
 
 option :: (MonadInteract m w e) => a -> m a -> m a
 -- ^ @option x p@ will either parse @p@ or return @x@ without consuming

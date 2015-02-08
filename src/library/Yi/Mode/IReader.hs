@@ -17,6 +17,7 @@ module Yi.Mode.IReader where
 import Data.Text ()
 import Control.Lens
 import Data.Char (intToDigit)
+import Data.Foldable (asum)
 import Yi.Buffer.Misc
 import Yi.Editor
 import Yi.IReader
@@ -28,7 +29,7 @@ abstract :: Mode syntax
 abstract = fundamentalMode { modeApplies = anyExtension ["irtxt"]
                            , modeKeymap = topKeymapA %~ ikeys }
   where
-    ikeys = important $ choice m
+    ikeys = important $ asum m
     m = [ metaCh '`' ?>>! saveAsNewArticle
         , metaCh '0' ?>>! deleteAndNextArticle
         ]

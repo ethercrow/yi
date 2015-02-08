@@ -58,7 +58,7 @@ import           Data.DeriveTH
 #else
 import           GHC.Generics (Generic)
 #endif
-import           Data.Foldable (find)
+import           Data.Foldable (asum, find)
 import           Data.List hiding (find, maximum, concat)
 import qualified Data.Map as M
 import           Data.Monoid
@@ -375,12 +375,13 @@ procDiredOp counting r@(DOChoice prompt op:ops) = do
     then proceedYes
     else withEditor_ $ spawnMinibufferE msg (const askKeymap)
     where msg = R.toText $ prompt <> " (y/n/!/q/h)"
-          askKeymap = choice [ char 'n' ?>>! noAction
-                             , char 'y' ?>>! yesAction
-                             , char '!' ?>>! allAction
-                             , char 'q' ?>>! quit
-                             , char 'h' ?>>! help
-                             ]
+          askKeymap = asum
+              [ char 'n' ?>>! noAction
+              , char 'y' ?>>! yesAction
+              , char '!' ?>>! allAction
+              , char 'q' ?>>! quit
+              , char 'h' ?>>! help
+              ]
           noAction = cleanUp >> proceedNo
           yesAction = cleanUp >> proceedYes
           allAction = do cleanUp
@@ -473,10 +474,10 @@ diredKeymap = important $ withArg mainMap
   where
     -- produces a copy of the map allowing for C-u
     withArg :: (Maybe Int -> Keymap) -> Keymap
-    withArg k = choice [ ctrlCh 'u' ?>> k (Just 1) , k Nothing ]
+    withArg k = asum [ ctrlCh 'u' ?>> k (Just 1) , k Nothing ]
 
     mainMap :: Maybe Int -> Keymap
-    mainMap univArg = choice
+    mainMap univArg = asum
       [ char 'p'                   ?>>! filenameColOf lineUp
       , oneOf [char 'n', char ' ']  >>! filenameColOf lineDown
       , char 'd'                   ?>>! diredMarkDel
@@ -501,7 +502,7 @@ diredKeymap = important $ withArg mainMap
       ]
 
     multiMarks :: Maybe Int -> Keymap
-    multiMarks univArg = choice
+    multiMarks univArg = asum
       [ char '!' ?>>! diredUnmarkAll
       , char '@' ?>>! diredMarkSymlinks univArg
       , char '/' ?>>! diredMarkDirectories univArg

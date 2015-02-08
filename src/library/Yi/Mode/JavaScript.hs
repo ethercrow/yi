@@ -21,7 +21,7 @@ import           Control.Monad.Writer.Lazy (execWriter)
 import           Data.Binary
 import           Data.DList as D (toList)
 import           Data.Default
-import           Data.Foldable as F (toList)
+import qualified Data.Foldable as F (asum, toList)
 import           Data.List (nub)
 import           Data.Maybe (isJust)
 import           Data.Monoid
@@ -37,7 +37,6 @@ import           Yi.Editor (withEditor, withOtherWindow, getEditorDyn,
 import           Yi.Event (Key(..), Event(..))
 import           Yi.File (fwriteE)
 import           Yi.IncrementalParse (scanner)
-import           Yi.Interact (choice)
 import           Yi.Keymap (YiM, Action(..), topKeymapA)
 import           Yi.Keymap.Keys (ctrlCh, (?>>), (?>>!), important)
 import           Yi.Lexer.Alex (AlexState, Tok, lexScanner,
@@ -96,7 +95,7 @@ jsLexer = lexScanner (commonLexer alexScanToken initState)
 -- | Hooks for the JavaScript mode.
 hooks :: Mode (Tree TT) -> Mode (Tree TT)
 hooks mode = mode
-  { modeKeymap = topKeymapA %~ important (choice m)
+  { modeKeymap = topKeymapA %~ important (F.asum m)
   , modeFollow = YiA . jsCompile
   }
   where

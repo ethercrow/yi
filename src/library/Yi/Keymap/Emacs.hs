@@ -30,6 +30,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Data.Char
+import Data.Foldable (asum)
 import Data.Maybe
 import Data.Prototype
 import Data.Text ()
@@ -103,7 +104,7 @@ moveE u d = isearchFinishWithE resetRegexE >> withCurrentBuffer (moveB u d)
 
 emacsKeys :: Maybe Int -> Keymap
 emacsKeys univArg =
-  choice [ -- First all the special key bindings
+  asum [ -- First all the special key bindings
            spec KTab            ?>>! adjIndent IncreaseCycle
          , shift (spec KTab)    ?>>! adjIndent DecreaseCycle
          , spec KEnter          ?>>! repeatingArg newlineB
@@ -233,50 +234,51 @@ emacsKeys univArg =
   withIntArg :: YiAction (m ()) () => (Int -> m ()) -> YiM ()
   withIntArg cmd = withUnivArg $ \arg -> cmd (fromMaybe 1 arg)
 
+  ctrlC = asum [ ctrlCh 'c' ?>>! commentRegion ]
 
-  ctrlC = choice [ ctrlCh 'c' ?>>! commentRegion ]
-
-
-  rectangleFunctions = choice [ char 'a' ?>>! alignRegionOn
-                              , char 'o' ?>>! openRectangle
-                              , char 't' ?>>! stringRectangle
-                              , char 'k' ?>>! killRectangle
-                              , char 'y' ?>>! yankRectangle
-                              ]
+  rectangleFunctions = asum
+      [ char 'a' ?>>! alignRegionOn
+      , char 'o' ?>>! openRectangle
+      , char 't' ?>>! stringRectangle
+      , char 'k' ?>>! killRectangle
+      , char 'y' ?>>! yankRectangle
+      ]
 
   tabFunctions :: Keymap
-  tabFunctions = choice [ optMod ctrl (char 'n') >>! nextTabE
-                        , optMod ctrl (char 'p') >>! previousTabE
-                        , optMod ctrl (char 't') >>! newTabE
-                        , optMod ctrl (char 'e') >>! findFileNewTab
-                        , optMod ctrl (char 'd') >>! deleteTabE
-                        , digit id >>=! moveTabE . Just . digitToInt
-                        ]
+  tabFunctions = asum
+      [ optMod ctrl (char 'n') >>! nextTabE
+      , optMod ctrl (char 'p') >>! previousTabE
+      , optMod ctrl (char 't') >>! newTabE
+      , optMod ctrl (char 'e') >>! findFileNewTab
+      , optMod ctrl (char 'd') >>! deleteTabE
+      , digit id >>=! moveTabE . Just . digitToInt
+      ]
   -- These keybindings are all preceded by a 'C-x' so for example to
   -- quit the editor we do a 'C-x C-c'
-  ctrlX = choice [ ctrlCh 'o'    ?>>! deleteBlankLinesB
-                 , char '0'      ?>>! closeWindowEmacs
-                 , char '1'      ?>>! closeOtherE
-                 , char '2'      ?>>! splitE
-                 , char 'h'      ?>>! selectAll
-                 , char 's'      ?>>! askSaveEditor
-                 , ctrlCh 'b'    ?>>! listBuffers
-                 , ctrlCh 'c'    ?>>! askQuitEditor
-                 , ctrlCh 'f'    ?>>! findFile
-                 , ctrlCh 'r'    ?>>! findFileReadOnly
-                 , ctrlCh 'q'    ?>>!
-                     ((withCurrentBuffer (readOnlyA %= not)) :: EditorM ())
-                 , ctrlCh 's'    ?>>! fwriteE
-                 , ctrlCh 'w'    ?>>! promptFile "Write file:" (void . fwriteToE)
-                 , ctrlCh 'x'    ?>>! (exchangePointAndMarkB >>
-                                       assign highlightSelectionA True)
-                 , char 'b'      ?>>! switchBufferE
-                 , char 'd'      ?>>! dired
-                 , char 'e' ?>>
-                   char 'e'      ?>>! evalRegionE
-                 , char 'o'      ?>>! nextWinE
-                 , char 'k'      ?>>! killBufferE
-                 , char 'r'      ?>>  rectangleFunctions
-                 , char 'u'      ?>>! repeatingArg undoB
-                 , optMod ctrl (char 't') >> tabFunctions
-                 ]
+  ctrlX = asum
+      [ ctrlCh 'o'    ?>>! deleteBlankLinesB
+      , char '0'      ?>>! closeWindowEmacs
+      , char '1'      ?>>! closeOtherE
+      , char '2'      ?>>! splitE
+      , char 'h'      ?>>! selectAll
+      , char 's'      ?>>! askSaveEditor
+      , ctrlCh 'b'    ?>>! listBuffers
+      , ctrlCh 'c'    ?>>! askQuitEditor
+      , ctrlCh 'f'    ?>>! findFile
+      , ctrlCh 'r'    ?>>! findFileReadOnly
+      , ctrlCh 'q'    ?>>!
+          ((withCurrentBuffer (readOnlyA %= not)) :: EditorM ())
+      , ctrlCh 's'    ?>>! fwriteE
+      , ctrlCh 'w'    ?>>! promptFile "Write file:" (void . fwriteToE)
+      , ctrlCh 'x'    ?>>! (exchangePointAndMarkB >>
+                            assign highlightSelectionA True)
+      , char 'b'      ?>>! switchBufferE
+      , char 'd'      ?>>! dired
+      , char 'e' ?>>
+        char 'e'      ?>>! evalRegionE
+      , char 'o'      ?>>! nextWinE
+      , char 'k'      ?>>! killBufferE
+      , char 'r'      ?>>  rectangleFunctions
+      , char 'u'      ?>>! repeatingArg undoB
+      , optMod ctrl (char 't') >> tabFunctions
+      ]

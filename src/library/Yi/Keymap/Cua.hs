@@ -21,6 +21,7 @@ module Yi.Keymap.Cua ( keymap
 import           Control.Applicative
 import           Control.Lens hiding (act)
 import           Control.Monad
+import           Data.Foldable (asum)
 import qualified Data.Text as T
 import           Yi.Buffer
 import           Yi.Editor
@@ -136,10 +137,10 @@ moveKeys = [
 move, select, rect :: Keymap
 other :: (Event -> Event) -> Keymap
 
-move   = choice [            k  ?>>! unsetMark       >> a | (k,a) <- moveKeys]
-select = choice [      shift k  ?>>!   setMark False >> a | (k,a) <- moveKeys]
-rect   = choice [meta (shift k) ?>>!   setMark True  >> a | (k,a) <- moveKeys]
-other  cmd = choice [
+move   = asum [            k  ?>>! unsetMark       >> a | (k,a) <- moveKeys]
+select = asum [      shift k  ?>>!   setMark False >> a | (k,a) <- moveKeys]
+rect   = asum [meta (shift k) ?>>!   setMark True  >> a | (k,a) <- moveKeys]
+other  cmd = asum [
  spec KBS         ?>>! deleteSel bdeleteB,
  spec KDel        ?>>! deleteSel (deleteN 1),
  spec KEnter      ?>>! replaceSel $ R.singleton '\n',

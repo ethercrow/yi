@@ -15,6 +15,7 @@ module Yi.Mode.Interactive where
 import           Control.Applicative
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
+import           Data.Foldable (asum)
 import           Data.Monoid
 import qualified Data.Text as T
 import           Yi.Buffer
@@ -38,7 +39,7 @@ mode = Compilation.mode
   { modeApplies = modeNeverApplies,
     modeName = "interactive",
     modeKeymap = topKeymapA %~ (<||)
-     (choice
+     (asum
       [spec KHome ?>>! moveToSol,
        spec KEnter ?>>! do
           eof <- withCurrentBuffer atLastLine

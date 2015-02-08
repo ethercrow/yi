@@ -13,6 +13,7 @@ module Yi.Keymap.Vim.Ex.Commands.Substitute (parse) where
 
 import           Control.Applicative
 import           Control.Monad
+import           Data.Foldable (asum)
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Text.ParserCombinators.Parsec as P
@@ -112,8 +113,8 @@ substituteMatch to co autoAll (m:ms) = do
 
 -- | Actual choices during confirm mode.
 askKeymap :: R.YiString -> Int -> Int -> Region -> [Region] -> Keymap
-askKeymap to co co' m ms = choice [
-      char 'n' ?>>! cleanUp >> substituteMatch to co False ms
+askKeymap to co co' m ms = asum
+    [ char 'n' ?>>! cleanUp >> substituteMatch to co False ms
     , char 'a' ?>>! do cleanUp
                        replace
                        substituteMatch to co' True ms

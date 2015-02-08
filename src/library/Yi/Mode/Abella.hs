@@ -29,6 +29,7 @@ import           Control.Monad
 import           Data.Binary
 import           Data.Char (isSpace)
 import           Data.Default
+import           Data.Foldable (asum)
 import           Data.Maybe (isJust)
 import qualified Data.Text as T
 import           Data.Typeable
@@ -50,7 +51,7 @@ abellaModeGen abellaBinding = styleMode Abella.lexer
   & modeAppliesA .~ anyExtension ["thm"]
   & modeToggleCommentSelectionA .~ Just (toggleCommentB "%")
   & modeKeymapA .~ topKeymapA %~ (<||)
-     (choice
+     (asum
       [ abellaBinding 'p' ?*>>! abellaUndo
       , abellaBinding 'e' ?*>>! abellaEval
       , abellaBinding 'n' ?*>>! abellaNext

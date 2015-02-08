@@ -34,7 +34,7 @@ import           Control.Applicative
 import           Control.Concurrent
 import           Control.Lens hiding (act)
 import           Control.Monad
-import           Data.Foldable (find, toList)
+import           Data.Foldable (asum, find, toList)
 import           Data.IORef
 import qualified Data.List.PointedList.Circular as PL
 import           Data.Maybe
@@ -234,7 +234,7 @@ withMinibufferGen proposal getHint prompt completer onTyping act = do
       down = historyMove prompt (-1)
 
       rebindings =
-        choice [oneOf [spec KEnter, ctrl $ char 'm'] >>! innerAction,
+          asum [oneOf [spec KEnter, ctrl $ char 'm'] >>! innerAction,
                 oneOf [spec KUp,    meta $ char 'p'] >>! up,
                 oneOf [spec KDown,  meta $ char 'n'] >>! down,
                 oneOf [spec KTab,   ctrl $ char 'i']

@@ -15,6 +15,7 @@ module Yi.Mode.Buffers (listBuffers) where
 import           Control.Applicative ((<$>))
 import           Control.Category ((>>>))
 import           Control.Lens
+import           Data.Foldable (asum)
 import           Data.List.NonEmpty (toList)
 import qualified Data.Text as T
 import           System.FilePath (takeFileName)
@@ -56,7 +57,7 @@ switch = do
 -- __v__              → open buffer as read-only
 -- @
 bufferKeymap :: Keymap -> Keymap
-bufferKeymap = important $ choice
+bufferKeymap = important $ asum
   [ char 'p'                        ?>>! lineUp
   , oneOf [ char 'n', char ' ' ]    >>! lineDown
   , oneOf [ spec KEnter, char 'f' ] >>! (switch >> setReadOnly False)

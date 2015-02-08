@@ -55,6 +55,7 @@ import           Control.Applicative
 import           Control.Lens hiding (re,act)
 import           Control.Monad
 import           Control.Monad.Base()
+import           Data.Foldable (asum)
 import           Data.List ((\\))
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid
@@ -114,7 +115,7 @@ askIndividualSave hasQuit allBuffers@(firstBuffer : others) =
                          ]
   bufferName  = identString firstBuffer
 
-  askKeymap = choice ([ char 'n' ?>>! noAction
+  askKeymap = asum ([ char 'n' ?>>! noAction
                       , char 'y' ?>>! yesAction
                       , char '!' ?>>! allAction
                       , oneOf [char 'c', ctrl $ char 'g']
@@ -149,7 +150,7 @@ modifiedQuitEditor =
   where
   modifiedMessage = "Modified buffers exist really quit? (y/n)"
 
-  askKeymap = choice [ char 'n' ?>>! noAction
+  askKeymap = asum [ char 'n' ?>>! noAction
                      , char 'y' ?>>! quitEditor
                      ]
 
@@ -163,7 +164,7 @@ selfSearchKeymap = do
   write . isearchAddE $ T.singleton c
 
 searchKeymap :: Keymap
-searchKeymap = selfSearchKeymap <|> choice
+searchKeymap = selfSearchKeymap <|> asum
                [ -- ("C-g", isearchDelE) -- Only if string is not empty.
                  ctrl (char 'r') ?>>! isearchPrevE
                , ctrl (char 's') ?>>! isearchNextE
@@ -177,7 +178,7 @@ isearchKeymap :: Direction -> Keymap
 isearchKeymap dir =
   do write $ isearchInitE dir
      void $ many searchKeymap
-     choice [ ctrl (char 'g') ?>>! isearchCancelE
+     asum [ ctrl (char 'g') ?>>! isearchCancelE
             , oneOf [ctrl (char 'm'), spec KEnter]
               >>! isearchFinishWithE resetRegexE
             ]
@@ -192,7 +193,7 @@ queryReplaceE = withMinibufferFree "Replace:" $ \replaceWhat ->
     win <- use currentWindowA
     let repStr = R.fromText replaceWith
         replaceKm =
-          choice [ char 'n'                  ?>>! qrNext win b re
+          asum [ char 'n'                  ?>>! qrNext win b re
                  , char '!'                  ?>>! qrReplaceAll win b re repStr
                  , oneOf [char 'y', char ' '] >>! qrReplaceOne win b re repStr
                  , oneOf [char 'q', ctrl (char 'g')] >>! qrFinish
@@ -305,7 +306,7 @@ killBufferE = promptingForBuffer "kill buffer:" k (\o b -> o ++ (b \\ o))
     k b = do
       buf <- withEditor . gets $ findBufferWith b
       ch <- deservesSave buf
-      let askKeymap = choice [ char 'n' ?>>! closeBufferAndWindowE
+      let askKeymap = asum [ char 'n' ?>>! closeBufferAndWindowE
                              , char 'y' ?>>! delBuf >> closeBufferAndWindowE
                              , ctrlCh 'g' ?>>! closeBufferAndWindowE
                              ]
