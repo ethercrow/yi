@@ -56,11 +56,9 @@ module Yi.Interact
      oneOf,
      processOneEvent,
      computeState,
-     event,
-     events,
      mkAutomaton, idAutomaton,
      runWrite,
-     anyEvent,
+     events,
     ) where
 
 import           Control.Applicative
@@ -79,11 +77,12 @@ import           Data.Monoid
 class (Eq w, Monad m, Alternative m, Applicative m, MonadPlus m) => MonadInteract m w e | m -> w e where
     write :: w -> m ()
     -- ^ Outputs a result.
-    eventBounds :: Ord e => Maybe e -> Maybe e -> m e
-    -- ^ Consumes and returns the next character.
-    --   Fails if there is no input left, or outside the given bounds.
+    anyEvent :: Eq e => m e
+    -- ^ Consumes and returns the next event.
+    event :: Eq e => e -> m e
+    -- ^ Consumes a specific event and returns it.
+    --   Fails if there is no input left or event doesn't match the expected one
     adjustPriority :: Int -> m ()
-
 
 -------------------------------------------------
 -- State transformation
@@ -92,7 +91,8 @@ class (Eq w, Monad m, Alternative m, Applicative m, MonadPlus m) => MonadInterac
 -- TODO: abstract over MonadTransformer
 instance MonadInteract m w e => MonadInteract (StateT s m) w e where
     write = lift . write
-    eventBounds l h = lift (eventBounds l h)
+    anyEvent = lift anyEvent
+    event = lift . event
     adjustPriority p = lift (adjustPriority p)
 
 ---------------------------------------------------------------------------
@@ -102,8 +102,8 @@ instance MonadInteract m w e => MonadInteract (StateT s m) w e where
 data I ev w a where
     Returns :: a -> I ev w a
     Binds :: I ev w a -> (a -> I ev w b) -> I ev w b
-    Gets :: Ord ev => Maybe ev -> Maybe ev -> I ev w ev
-    -- Doc: Accept any character between given bounds. Bound is ignored if 'Nothing'.
+    ConsumesAny :: I ev w ev
+    ConsumesSpecific :: Eq ev => ev -> I ev w ev
     Fails :: I ev w a
     Writes :: w -> I ev w ()
     Priority :: Int -> I ev w ()
@@ -131,9 +131,9 @@ instance Eq w => MonadPlus (I event w) where
 
 instance Eq w => MonadInteract (I event w) w event where
     write = Writes
-    eventBounds = Gets
+    anyEvent = ConsumesAny
+    event e = ConsumesSpecific e
     adjustPriority = Priority
-
 
 infixl 3 <||
 
@@ -155,7 +155,8 @@ mkProcess :: Eq w => I ev w a -> (a -> P ev w) -> P ev w
 mkProcess (Returns x) = \fut -> fut x
 mkProcess Fails = const Fail
 mkProcess (m `Binds` f) = \fut -> mkProcess m (\a -> mkProcess (f a) fut)
-mkProcess (Gets l h) = Get l h
+mkProcess ConsumesAny = GetAny
+mkProcess (ConsumesSpecific x) = Get x
 mkProcess (Writes w) = \fut -> Write w (fut ())
 mkProcess (Priority p) = \fut -> Prior p (fut ())
 mkProcess (Plus a b) = \fut -> Best (mkProcess a fut) (mkProcess b fut)
@@ -166,7 +167,8 @@ mkProcess (Plus a b) = \fut -> Best (mkProcess a fut) (mkProcess b fut)
 
 -- | Operational representation of a process
 data P event w
-    = Ord event => Get (Maybe event) (Maybe event) (event -> P event w)
+    = Eq event => Get event (event -> P event w)
+    | GetAny (event -> P event w)
     | Fail
     | Write w (P event w)
     | Prior Int (P event w) -- low numbers indicate high priority
@@ -189,8 +191,9 @@ pushEvent :: P ev w -> ev -> P ev w
 pushEvent (Best c d) e = Best (pushEvent c e) (pushEvent d e)
 pushEvent (Write w c) e = Write w (pushEvent c e)
 pushEvent (Prior p c) e = Prior p (pushEvent c e)
-pushEvent (Get l h f) e = if test (e >=) l && test (e <=) h then f e else Fail
-    where test = maybe True
+pushEvent (GetAny f) e = f e
+pushEvent (Get x f) e | x == e = f e
+pushEvent (Get _ _) _ = Fail
 pushEvent Fail _ = Fail
 pushEvent End _ = End
 pushEvent (Chain p q) e = Chain (pushEvent p e) q
@@ -220,7 +223,8 @@ findWrites p (Write w c) = Ambiguous [(p,w,c)]
 findWrites p (Prior dp c) = findWrites (p+dp) c
 findWrites _ Fail = Dead
 findWrites _ End = Dead
-findWrites _ (Get{})     = Waiting
+findWrites _ (Get _ _)     = Waiting
+findWrites _ (GetAny _)     = Waiting
 findWrites p (Chain a b) = case computeState a of
     Dead -> Dead
     Ambiguous _ -> Dead -- If ambiguity, don't try to do anything clever for now; die.
@@ -248,9 +252,8 @@ pullWrites a = case computeState a of
     _ -> ([], a)
 
 instance (Show w, Show ev) => Show (P ev w) where
-    show (Get Nothing Nothing _) = "?"
-    show (Get (Just l) (Just h) _p) | l == h = show l -- ++ " " ++ show (p l)
-    show (Get l h _) = maybe "" show l ++ ".." ++ maybe "" show h
+    show (GetAny _) = "?"
+    show (Get x _p) = show x
     show (Prior p c) = ":" ++ show p ++ show c
     show (Write w c) = "!" ++ show w ++ "->" ++ show c
     show (End) = "."
@@ -262,13 +265,6 @@ instance (Show w, Show ev) => Show (P ev w) where
 -- Derived operations
 oneOf :: (Ord event, MonadInteract m w event) => [event] -> m event
 oneOf s = asum $ map event s
-
-anyEvent :: (Ord event, MonadInteract m w event) => m event
-anyEvent = eventBounds Nothing Nothing
-
-event :: (Ord event, MonadInteract m w event) => event -> m event
--- ^ Parses and returns the specified character.
-event e = eventBounds (Just e) (Just e)
 
 events :: (Ord event, MonadInteract m w event) => [event] -> m [event]
 -- ^ Parses and returns the specified list of events (lazily).
@@ -283,8 +279,8 @@ mkAutomaton :: Eq w => I ev w a -> P ev w
 mkAutomaton i = mkProcess i (const End)
 
 -- An automaton that produces its input
-idAutomaton :: (Ord a, Eq a) => P a a
-idAutomaton = Get Nothing Nothing $ \e -> Write e idAutomaton
+idAutomaton :: P a a
+idAutomaton = GetAny $ \e -> Write e idAutomaton
 -- It would be much nicer to write:
 --    mkAutomaton (forever 0 (anyEvent >>= write))
 -- however this creates a memory leak. Unfortunately I don't understand why.
