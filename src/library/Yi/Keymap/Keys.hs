@@ -16,7 +16,7 @@ module Yi.Keymap.Keys
      module Yi.Event,
      module Yi.Interact,
      printableChar, textChar,
-     charOf, shift, meta, ctrl, super, hyper, spec, char,
+     shift, meta, ctrl, super, hyper, spec, char,
      (>>!), (>>=!), (?>>), (?>>!), (?*>>), (?*>>!),
      ctrlCh, metaCh, hyperCh,
      optMod,
@@ -50,11 +50,6 @@ textChar = do
 
 pString :: (MonadInteract m w Event) => String -> m [Event]
 pString = events . map char
-
-charOf :: (MonadInteract m w Event) => (Event -> Event) -> Char -> Char -> m Char
-charOf modifier l h =
-    do Event (KASCII c) _ <- eventBetween (modifier $ char l) (modifier $ char h)
-       return c
 
 shift,ctrl,meta,super,hyper :: Event -> Event
 shift (Event (KASCII c) ms) | isAlpha c = Event (KASCII (toUpper c)) ms

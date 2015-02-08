@@ -24,6 +24,7 @@ module Yi.Keymap.Emacs.Utils
   , argToInt
   , askQuitEditor
   , askSaveEditor
+  , digit
   , modifiedQuitEditor
   , withMinibuffer
   , queryReplaceE
@@ -235,7 +236,10 @@ argToInt = fromMaybe 1
 
 
 digit :: (Event -> Event) -> KeymapM Char
-digit f = charOf f '0' '9'
+digit f =
+    fmap
+        (\(Event (KASCII c) _) -> c)
+        (oneOf (map (f . char) ['0' .. '9']))
 
 -- TODO: replace tt by digit meta
 tt :: KeymapM Char

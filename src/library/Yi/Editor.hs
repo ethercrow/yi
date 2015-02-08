@@ -16,7 +16,6 @@
 
 module Yi.Editor ( Editor(..), EditorM(..), MonadEditor(..)
                  , runEditor
-                 , acceptedInputsOtherWindow
                  , addJumpAtE
                  , addJumpHereE
                  , alternateBufferE
@@ -119,7 +118,6 @@ import           Prelude hiding (foldl,concatMap,foldr,all)
 import           System.FilePath (splitPath)
 import           Yi.Buffer
 import           Yi.Config
-import           Yi.Interact as I
 import           Yi.JumpList
 import           Yi.KillRing
 import           Yi.Layout
@@ -739,21 +737,6 @@ withOtherWindow f = do
   x <- f
   withEditor prevWinE
   return x
-
-acceptedInputs :: EditorM [T.Text]
-acceptedInputs = do
-  km <- defaultKm <$> askCfg
-  keymap <- withCurrentBuffer $ gets (withMode0 modeKeymap)
-  let l = I.accepted 3 . I.mkAutomaton . extractTopKeymap . keymap $ km
-  return $ fmap T.unwords l
-
--- | Shows the current key bindings in a new window
-acceptedInputsOtherWindow :: EditorM ()
-acceptedInputsOtherWindow = do
-  ai <- acceptedInputs
-  b <- stringToNewBuffer (MemBuffer "keybindings") (fromText $ T.unlines ai)
-  w <- newWindowE False b
-  windowsA %= PL.insertRight w
 
 -- | Defines an action to be executed when the current buffer is closed.
 --

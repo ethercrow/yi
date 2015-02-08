@@ -43,7 +43,7 @@ import Yi.File
 import Yi.Keymap
 import Yi.Keymap.Emacs.KillRing
 import Yi.Keymap.Emacs.Utils
-  (askQuitEditor, evalRegionE, executeExtendedCommandE, findFile,
+  (askQuitEditor, digit, evalRegionE, executeExtendedCommandE, findFile,
    findFileNewTab, promptFile, insertNextC, isearchKeymap, killBufferE,
    queryReplaceE, readUniversalArg, scrollDownE, scrollUpE, switchBufferE,
    askSaveEditor, argToInt, promptTag, justOneSep, joinLinesE, countWordsRegion,
@@ -142,7 +142,6 @@ emacsKeys univArg =
          , ctrlCh 'e'           ?>>! repeatingArg (maybeMoveB Line Forward)
          , ctrlCh 'f'           ?>>! repeatingArg rightB
          , ctrlCh 'g'           ?>>! setVisibleSelection False
-         , ctrlCh 'h'           ?>> char 'b' ?>>! acceptedInputsOtherWindow
          , ctrlCh 'i'           ?>>! adjIndent IncreaseOnly
          , ctrlCh 'j'           ?>>! newlineAndIndentB
          , ctrlCh 'k'           ?>>! killLineE univArg
@@ -251,7 +250,7 @@ emacsKeys univArg =
                         , optMod ctrl (char 't') >>! newTabE
                         , optMod ctrl (char 'e') >>! findFileNewTab
                         , optMod ctrl (char 'd') >>! deleteTabE
-                        , charOf id '0' '9' >>=! moveTabE . Just . digitToInt
+                        , digit id >>=! moveTabE . Just . digitToInt
                         ]
   -- These keybindings are all preceded by a 'C-x' so for example to
   -- quit the editor we do a 'C-x C-c'

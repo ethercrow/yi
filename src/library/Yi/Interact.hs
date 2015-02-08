@@ -62,8 +62,6 @@ module Yi.Interact
      mkAutomaton, idAutomaton,
      runWrite,
      anyEvent,
-     eventBetween,
-     accepted
     ) where
 
 import           Control.Applicative
@@ -177,28 +175,6 @@ data P event w
     | End
     | forall mid. (Show mid, Eq mid) => Chain (P event mid) (P mid w)
 
-accepted :: (Show ev) => Int -> P ev w -> [[T.Text]]
-accepted 0 _ = [[]]
-accepted d (Get (Just low) (Just high) k) = do
-    t <- accepted (d - 1) (k low)
-    let h = if low == high
-            then showT low
-            else showT low `T.append` ".." `T.append` showT high
-    return (h : t)
-accepted _ (Get Nothing Nothing _) = [["<any>"]]
-accepted _ (Get Nothing (Just e) _) = [[".." `T.append` showT e]]
-accepted _ (Get (Just e) Nothing _) = [[showT e `T.append` ".."]]
-accepted _ Fail = []
-accepted _ (Write _ _) = [[]] -- this should show what action we get...
-accepted d (Prior _ p) = accepted d p
-accepted d (Best p q) = accepted d p ++ accepted d q
-accepted _ End = []
-accepted _ (Chain _ _) = error "accepted: chain not supported"
-
--- Utility function
-showT :: Show a => a -> T.Text
-showT = T.pack . show
-
 -- ---------------------------------------------------------------------------
 -- Operations over P
 
@@ -294,12 +270,9 @@ oneOf s = choice $ map event s
 anyEvent :: (Ord event, MonadInteract m w event) => m event
 anyEvent = eventBounds Nothing Nothing
 
-eventBetween :: (Ord e, MonadInteract m w e) => e -> e -> m e
-eventBetween l h = eventBounds (Just l) (Just h)
-
 event :: (Ord event, MonadInteract m w event) => event -> m event
 -- ^ Parses and returns the specified character.
-event e = eventBetween e e
+event e = eventBounds (Just e) (Just e)
 
 events :: (Ord event, MonadInteract m w event) => [event] -> m [event]
 -- ^ Parses and returns the specified list of events (lazily).

@@ -211,7 +211,7 @@ import           System.FilePath
 import           Yi.Buffer.Basic
 import           Yi.Buffer.Implementation
 import           Yi.Buffer.Undo
-import           Yi.Interact as I
+import qualified Yi.Interact as I
 import           Yi.Monad
 import           Yi.Region
 import           Yi.Rope (YiString)
