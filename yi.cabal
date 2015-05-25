@@ -100,9 +100,6 @@ flag eventlog
     Runtime binary will be compiled with eventlog and RTS
     options enabled.
 
-flag testing
-  Description: bake-in the self-checks
-
 flag hint
   Default: False
   -- TODO: figure out how to write this
@@ -322,12 +319,6 @@ library
     build-depends:
       Win32
 
-  if flag(testing)
-    cpp-options: -DTESTING
-    build-depends:
-      QuickCheck >= 2.7 && < 2.8,
-      random
-
   -- Frontends
   if flag(pango)
     exposed-modules:
@@ -392,6 +383,7 @@ Test-Suite test-suite
     Vim.TestExCommandParsers
     Vim.TestPureBufferManipulations
     Vim.TestPureEditorManipulations
+    SyntaxTreeTests
   build-depends:
     base,
     lens >= 4.4.0.1,
@@ -399,6 +391,7 @@ Test-Suite test-suite
     tasty,
     tasty-hunit,
     tasty-quickcheck,
+    tasty-th,
     HUnit,
     QuickCheck,
     filepath,
