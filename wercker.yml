@@ -1,0 +1,7 @@
+box: ondrapelech/haskell-stackage-top@1.0.0
+
+build:
+    steps:
+        - script:
+            name: ohai
+            code: ghc --version && cabal install cabal-install && cabal install Cabal && cabal --version && cabal install --enable-tests --only-dependencies && cabal test
