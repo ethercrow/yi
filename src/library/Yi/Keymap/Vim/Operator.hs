@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_HADDOCK show-extensions #-}
 
 -- |
@@ -23,28 +25,33 @@ module Yi.Keymap.Vim.Operator
     , lastCharForOperator
     ) where
 
-import           Control.Applicative        ((<$>))
-import           Control.Monad              (when)
-import           Data.Char                  (isSpace, toLower, toUpper)
-import           Data.Foldable              (find)
-import           Data.Maybe                 (fromJust)
-import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T (unpack)
-import           Yi.Buffer.Adjusted         hiding (Insert)
-import           Yi.Editor                  (EditorM, getEditorDyn, withCurrentBuffer)
+import           Control.Applicative ((<$>))
+import           Control.Monad
+import           Control.Monad.Base
+import           Data.Char (toLower, toUpper, isSpace)
+import           Data.Foldable (find)
+import           Data.Maybe (fromJust)
+import           Data.Monoid
+import           Data.Proxy
+import qualified Data.Text as T
+import           IfCxt
+import qualified System.Hclip as Clip
+import           Yi.Buffer.Adjusted hiding (Insert)
+import           Yi.Editor
 import           Yi.Keymap.Vim.Common
-import           Yi.Keymap.Vim.EventUtils   (eventToEventString, parseEvents)
-import           Yi.Keymap.Vim.StateUtils   (setRegisterE, switchModeE)
-import           Yi.Keymap.Vim.StyledRegion (StyledRegion (..), transformCharactersInRegionB)
-import           Yi.Keymap.Vim.TextObject   (CountedTextObject, regionOfTextObjectB)
-import           Yi.Keymap.Vim.Utils        (indentBlockRegionB)
-import           Yi.Misc                    (rot13Char)
-import           Yi.Rope                    (YiString)
-import qualified Yi.Rope                    as R
+import           Yi.Keymap.Vim.EventUtils
+import           Yi.Keymap.Vim.StateUtils
+import           Yi.Keymap.Vim.StyledRegion
+import           Yi.Keymap.Vim.TextObject
+import           Yi.Keymap.Vim.Utils
+import           Yi.Misc
+import           Yi.Rope (YiString)
+import qualified Yi.Rope as R
 
 data VimOperator = VimOperator {
     operatorName :: !OperatorName
-  , operatorApplyToRegionE :: Int -> StyledRegion -> EditorM RepeatToken
+  , operatorApplyToRegionE :: (MonadEditor m, IfCxt (MonadBase IO m)) =>
+      Int -> StyledRegion -> m RepeatToken
 }
 
 defOperators :: [VimOperator]
@@ -64,7 +71,7 @@ defOperators =
 stringToOperator :: [VimOperator] -> OperatorName -> Maybe VimOperator
 stringToOperator ops name = find ((== name) . operatorName) ops
 
-operatorApplyToTextObjectE :: VimOperator -> Int -> CountedTextObject -> EditorM RepeatToken
+operatorApplyToTextObjectE :: (MonadEditor m, IfCxt (MonadBase IO m)) => VimOperator -> Int -> CountedTextObject -> m RepeatToken
 operatorApplyToTextObjectE op count cto = do
     styledRegion <- withCurrentBuffer $ regionOfTextObjectB cto
     operatorApplyToRegionE op count styledRegion
@@ -72,19 +79,28 @@ operatorApplyToTextObjectE op count cto = do
 opYank :: VimOperator
 opYank = VimOperator {
     operatorName = "y"
-  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> do
-        s <- withCurrentBuffer $ readRegionRopeWithStyleB reg style
-        regName <- fmap vsActiveRegister getEditorDyn
-        setRegisterE regName style s
-        withCurrentBuffer $ moveTo . regionStart =<< convertRegionToStyleB reg style
-        switchModeE Normal
-        return Finish
+  , operatorApplyToRegionE = 
+      let impl :: forall m. (MonadEditor m, IfCxt (MonadBase IO m)) =>
+              _ -> _ -> m RepeatToken
+          impl _count (StyledRegion style reg) = do
+            s <- withCurrentBuffer $ readRegionRopeWithStyleB reg style
+            ifCxt
+                (Proxy :: Proxy (MonadBase IO m))
+                (liftBase (Clip.setClipboard (R.toString s)))
+                (return ())
+            regName <- fmap vsActiveRegister getEditorDyn
+            withEditor $ do
+                setRegisterE regName style s
+                withCurrentBuffer $ moveTo . regionStart =<< convertRegionToStyleB reg style
+                switchModeE Normal
+                return Finish
+      in impl
 }
 
 opDelete :: VimOperator
 opDelete = VimOperator {
     operatorName = "d"
-  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> do
+  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> withEditor $ do
         s <- withCurrentBuffer $ readRegionRopeWithStyleB reg style
         regName <- fmap vsActiveRegister getEditorDyn
         setRegisterE regName style s
@@ -105,7 +121,7 @@ opDelete = VimOperator {
 opChange :: VimOperator
 opChange = VimOperator {
     operatorName = "c"
-  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> do
+  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> withEditor $ do
         s <- withCurrentBuffer $ readRegionRopeWithStyleB reg style
         regName <- fmap vsActiveRegister getEditorDyn
         setRegisterE regName style s
@@ -122,7 +138,7 @@ opChange = VimOperator {
 opFormat :: VimOperator
 opFormat = VimOperator {
     operatorName = "gq"
-  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> do
+  , operatorApplyToRegionE = \_count (StyledRegion style reg) -> withEditor $ do
       withCurrentBuffer $ formatRegionB style reg
       switchModeE Normal
       return Finish
@@ -189,7 +205,7 @@ getNextLine maxLength str = let firstSplit = takeBlock (R.empty, R.dropWhile isS
 mkCharTransformOperator :: OperatorName -> (Char -> Char) -> VimOperator
 mkCharTransformOperator name f = VimOperator {
     operatorName = name
-  , operatorApplyToRegionE = \count sreg -> do
+  , operatorApplyToRegionE = \count sreg -> withEditor $ do
         withCurrentBuffer $ transformCharactersInRegionB sreg
                     $ foldr (.) id (replicate count f)
         switchModeE Normal
@@ -199,7 +215,7 @@ mkCharTransformOperator name f = VimOperator {
 mkShiftOperator :: OperatorName -> (Int -> Int) -> VimOperator
 mkShiftOperator name countMod = VimOperator {
     operatorName = name
-  , operatorApplyToRegionE = \count (StyledRegion style reg) -> do
+  , operatorApplyToRegionE = \count (StyledRegion style reg) -> withEditor $ do
         withCurrentBuffer $
             if style == Block
             then indentBlockRegionB (countMod count) reg

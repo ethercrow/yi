@@ -151,8 +151,8 @@ operatorBindings operators = fmap mkOperatorBinding $ operators ++ visualOperato
                                   , ("U", "gU")
                                   ]
           synonymOp (newName, existingName) =
-                    VimOperator newName . operatorApplyToRegionE . fromJust
-                    . stringToOperator operators $ existingName
+                let oldOp =  fromJust (stringToOperator operators existingName)
+                in oldOp { operatorName = newName }
 
 chooseRegisterBinding :: VimBinding
 chooseRegisterBinding = mkChooseRegisterBinding $
