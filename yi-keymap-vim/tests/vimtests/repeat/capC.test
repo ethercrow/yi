@@ -1,0 +1,10 @@
+-- Input
+(1,1)
+foo bar baz
+bar baz
+-- Output
+(2,7)
+foo bar foo
+bar foo
+-- Events
+wwCfoo<Esc>jb.
