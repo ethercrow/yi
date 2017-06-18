@@ -13,7 +13,7 @@ jobs:
     - stage: "Build and test"
       script: stack --install-ghc --stack-yaml=lts-6.yaml test
     - script: stack --install-ghc --stack-yaml=lts-7.yaml test
-    - script: stack --stack-yaml=stack.yaml test
+    - script: stack --stack-yaml=stack.yaml test --ghc-options="-Wall -Werror"
     - stage: "Build example configs"
       script: stack --stack-yaml=all-configs.yaml build
 
