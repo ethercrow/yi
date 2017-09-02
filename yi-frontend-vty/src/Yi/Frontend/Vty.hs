@@ -85,9 +85,7 @@ data Rendered = Rendered
     }
 
 data FrontendState = FrontendState
-    { fsVty :: Vty.Vty
-    , fsConfig :: Config
-    , fsEndMain :: MVar ExitCode
+    { fsEndMain :: MVar ExitCode
     , fsEndInputLoop :: MVar ()
     , fsEndRenderLoop :: MVar ()
     , fsDirty :: MVar ()
