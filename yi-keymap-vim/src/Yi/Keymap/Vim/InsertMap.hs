@@ -136,7 +136,8 @@ digraphBinding digraphs = VimBindingE (f . T.unpack . _unEv)
             = WholeMatch $ do
                   maybe (return ()) (withCurrentBuffer . insertB) $ charFromDigraph digraphs c1 c2
                   return Continue
-          f ('<':'C':'-':'k':'>':_c1:[]) (VimState { vsMode = Insert _ }) = PartialMatch
+          f ('<':'C':'-':'k':'>':c1:[]) (VimState { vsMode = Insert _ })
+              | any ((pure c1 `isPrefixOf`) . fst) digraphs = PartialMatch
           f "<C-k>" (VimState { vsMode = Insert _ }) = PartialMatch
           f _ _ = NoMatch
 

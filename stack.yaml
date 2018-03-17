@@ -19,7 +19,7 @@ packages:
 - yi-snippet
 - yi
 extra-deps: []
-resolver: lts-8.18
+resolver: lts-10.7
 build:
  library-profiling: false
  executable-profiling: false

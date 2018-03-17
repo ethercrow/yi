@@ -1,0 +1,8 @@
+-- Input
+(1,5)
+abcdf
+-- Output
+(1,6)
+abcdbbf
+-- Events
+i<C-k>bb<Esc>
